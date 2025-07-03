@@ -519,12 +519,6 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICE
 
 ## 🗺️ Roadmap
 
-### v1.1 (Yakında)
-- [ ] OpenAI API entegrasyonu
-- [ ] Anthropic Claude desteği
-- [ ] Gelişmiş kod editörü
-- [ ] Plugin sistemi
-
 ### v1.2 (Gelecek)
 - [ ] Kubernetes desteği
 - [ ] Multi-tenant mimari
