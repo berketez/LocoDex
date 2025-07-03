@@ -11,8 +11,8 @@ try {
   console.warn('yauzl module not available:', error.message);
 }
 
-const GITHUB_REPO_OWNER = 'locodex'; // GitHub kullanıcı adı veya organizasyon adı
-const GITHUB_REPO_NAME = 'locodex-desktop'; // GitHub repo adı
+const GITHUB_REPO_OWNER = 'berketez'; // GitHub kullanıcı adı veya organizasyon adı
+const GITHUB_REPO_NAME = 'LocoDex'; // GitHub repo adı
 const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}`;
 
 async function fetchLatestReleaseTag() {
