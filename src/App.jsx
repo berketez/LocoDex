@@ -989,7 +989,7 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
                 <img 
                   src="/assets/locodex-logo.png" 
                   alt="LocoDex Logo" 
@@ -999,8 +999,8 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
                     e.target.nextSibling.style.display = 'flex';
                   }}
                 />
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 rounded-lg flex items-center justify-center shadow-lg" style={{display: 'none'}}>
-                  <span className="text-white font-bold text-sm">LD</span>
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm" style={{display: 'none'}}>
+                  <span className="text-white font-bold text-xs">🤖</span>
                 </div>
               </div>
               <div>
