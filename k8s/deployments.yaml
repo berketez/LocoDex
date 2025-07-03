@@ -1,0 +1,689 @@
+---
+# AI Agent Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-ai-agent
+  namespace: locodex
+  labels:
+    app: locodex-ai-agent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: locodex-ai-agent
+  template:
+    metadata:
+      labels:
+        app: locodex-ai-agent
+    spec:
+      containers:
+      - name: ai-agent
+        image: locodex/ai-agent:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3001
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: NODE_ENV
+        - name: API_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: API_PORT
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: LOG_LEVEL
+        - name: OLLAMA_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: OLLAMA_HOST
+        - name: LMSTUDIO_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: LMSTUDIO_HOST
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: REDIS_HOST
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: locodex-secrets
+              key: redis-password
+        volumeMounts:
+        - name: data-storage
+          mountPath: /app/data
+        - name: logs-storage
+          mountPath: /app/logs
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 40
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      restartPolicy: Always
+---
+# Sandbox Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-sandbox
+  namespace: locodex
+  labels:
+    app: locodex-sandbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locodex-sandbox
+  template:
+    metadata:
+      labels:
+        app: locodex-sandbox
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: sandbox
+        image: locodex/sandbox:latest
+        imagePullPolicy: Always
+        env:
+        - name: SANDBOX_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: SANDBOX_MODE
+        - name: EXECUTION_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: EXECUTION_TIMEOUT
+        - name: MAX_MEMORY
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: MAX_MEMORY
+        - name: MAX_CPU
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: MAX_CPU
+        - name: PYTHONDONTWRITEBYTECODE
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: PYTHONDONTWRITEBYTECODE
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - DAC_OVERRIDE
+        volumeMounts:
+        - name: tmp-storage
+          mountPath: /tmp
+        - name: workspace-storage
+          mountPath: /home/sandbox/workspace
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 100Mi
+      - name: workspace-storage
+        emptyDir:
+          sizeLimit: 200Mi
+      restartPolicy: Always
+---
+# Deep Research Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-deep-research
+  namespace: locodex
+  labels:
+    app: locodex-deep-research
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locodex-deep-research
+  template:
+    metadata:
+      labels:
+        app: locodex-deep-research
+    spec:
+      containers:
+      - name: deep-research
+        image: locodex/deep-research:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8001
+        env:
+        - name: OLLAMA_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: OLLAMA_HOST
+        - name: LMSTUDIO_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: LMSTUDIO_HOST
+        - name: PYTHONUNBUFFERED
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: PYTHONUNBUFFERED
+        - name: LOCAL_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: LOCAL_MODE
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: REDIS_PORT
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: locodex-secrets
+              key: redis-password
+        volumeMounts:
+        - name: research-results
+          mountPath: /app/research_results
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 8Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: research-results
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      restartPolicy: Always
+---
+# DeepSearch Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-deepsearch
+  namespace: locodex
+  labels:
+    app: locodex-deepsearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locodex-deepsearch
+  template:
+    metadata:
+      labels:
+        app: locodex-deepsearch
+    spec:
+      containers:
+      - name: deepsearch
+        image: locodex/deepsearch:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+        - containerPort: 5001
+        - containerPort: 8000
+        env:
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: FLASK_ENV
+        - name: DATABASE_URL
+          value: "sqlite:///data/deepsearch.db"
+        - name: REDIS_URL
+          value: "redis://locodex-redis:6379/0"
+        - name: MONGODB_URL
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: MONGODB_URL
+        - name: ELASTICSEARCH_URL
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: ELASTICSEARCH_URL
+        volumeMounts:
+        - name: data-storage
+          mountPath: /app/data
+        - name: logs-storage
+          mountPath: /app/logs
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 40
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      restartPolicy: Always
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-redis
+  namespace: locodex
+  labels:
+    app: locodex-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locodex-redis
+  template:
+    metadata:
+      labels:
+        app: locodex-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: locodex-secrets
+              key: redis-password
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis/redis.conf
+          subPath: redis.conf
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - -a
+            - $(REDIS_PASSWORD)
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - -a
+            - $(REDIS_PASSWORD)
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-data-pvc
+      - name: redis-config
+        configMap:
+          name: redis-config
+      restartPolicy: Always
+---
+# MongoDB Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-mongodb
+  namespace: locodex
+  labels:
+    app: locodex-mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locodex-mongodb
+  template:
+    metadata:
+      labels:
+        app: locodex-mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:7
+        ports:
+        - containerPort: 27017
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: locodex-secrets
+              key: mongodb-username
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: locodex-secrets
+              key: mongodb-password
+        - name: MONGO_INITDB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: MONGO_INITDB_DATABASE
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: mongodb-data
+        persistentVolumeClaim:
+          claimName: mongodb-data-pvc
+      restartPolicy: Always
+---
+# Elasticsearch Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-elasticsearch
+  namespace: locodex
+  labels:
+    app: locodex-elasticsearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locodex-elasticsearch
+  template:
+    metadata:
+      labels:
+        app: locodex-elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+        ports:
+        - containerPort: 9200
+        - containerPort: 9300
+        env:
+        - name: discovery.type
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: discovery.type
+        - name: xpack.security.enabled
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: xpack.security.enabled
+        - name: ES_JAVA_OPTS
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: ES_JAVA_OPTS
+        volumeMounts:
+        - name: elasticsearch-data
+          mountPath: /usr/share/elasticsearch/data
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: elasticsearch-data
+        persistentVolumeClaim:
+          claimName: elasticsearch-data-pvc
+      restartPolicy: Always
+---
+# Celery Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-celery-worker
+  namespace: locodex
+  labels:
+    app: locodex-celery-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: locodex-celery-worker
+  template:
+    metadata:
+      labels:
+        app: locodex-celery-worker
+    spec:
+      containers:
+      - name: celery-worker
+        image: locodex/deepsearch:latest
+        imagePullPolicy: Always
+        command:
+        - celery
+        - -A
+        - src.services.deepsearch.core
+        - worker
+        - --loglevel=info
+        - --concurrency=4
+        env:
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: CELERY_RESULT_BACKEND
+        volumeMounts:
+        - name: data-storage
+          mountPath: /app/data
+        - name: logs-storage
+          mountPath: /app/logs
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      restartPolicy: Always
+---
+# Celery Beat Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locodex-celery-beat
+  namespace: locodex
+  labels:
+    app: locodex-celery-beat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locodex-celery-beat
+  template:
+    metadata:
+      labels:
+        app: locodex-celery-beat
+    spec:
+      containers:
+      - name: celery-beat
+        image: locodex/deepsearch:latest
+        imagePullPolicy: Always
+        command:
+        - celery
+        - -A
+        - src.services.deepsearch.core
+        - beat
+        - --loglevel=info
+        env:
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: locodex-config
+              key: CELERY_RESULT_BACKEND
+        volumeMounts:
+        - name: data-storage
+          mountPath: /app/data
+        - name: logs-storage
+          mountPath: /app/logs
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: locodex-data-pvc
+      restartPolicy: Always

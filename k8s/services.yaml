@@ -1,0 +1,258 @@
+---
+# AI Agent Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-ai-agent
+  namespace: locodex
+  labels:
+    app: locodex-ai-agent
+spec:
+  selector:
+    app: locodex-ai-agent
+  ports:
+  - name: http
+    port: 3001
+    targetPort: 3001
+    protocol: TCP
+  type: ClusterIP
+---
+# Sandbox Service (Internal only - no external access for security)
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-sandbox
+  namespace: locodex
+  labels:
+    app: locodex-sandbox
+spec:
+  selector:
+    app: locodex-sandbox
+  ports:
+  - name: http
+    port: 3002
+    targetPort: 3002
+    protocol: TCP
+  type: ClusterIP
+---
+# Deep Research Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-deep-research
+  namespace: locodex
+  labels:
+    app: locodex-deep-research
+spec:
+  selector:
+    app: locodex-deep-research
+  ports:
+  - name: http
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+  type: ClusterIP
+---
+# DeepSearch Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-deepsearch
+  namespace: locodex
+  labels:
+    app: locodex-deepsearch
+spec:
+  selector:
+    app: locodex-deepsearch
+  ports:
+  - name: api
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  - name: websocket
+    port: 5001
+    targetPort: 5001
+    protocol: TCP
+  - name: metrics
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-redis
+  namespace: locodex
+  labels:
+    app: locodex-redis
+spec:
+  selector:
+    app: locodex-redis
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    protocol: TCP
+  type: ClusterIP
+---
+# MongoDB Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-mongodb
+  namespace: locodex
+  labels:
+    app: locodex-mongodb
+spec:
+  selector:
+    app: locodex-mongodb
+  ports:
+  - name: mongodb
+    port: 27017
+    targetPort: 27017
+    protocol: TCP
+  type: ClusterIP
+---
+# Elasticsearch Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-elasticsearch
+  namespace: locodex
+  labels:
+    app: locodex-elasticsearch
+spec:
+  selector:
+    app: locodex-elasticsearch
+  ports:
+  - name: http
+    port: 9200
+    targetPort: 9200
+    protocol: TCP
+  - name: transport
+    port: 9300
+    targetPort: 9300
+    protocol: TCP
+  type: ClusterIP
+---
+# Nginx API Gateway Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-nginx
+  namespace: locodex
+  labels:
+    app: locodex-nginx
+spec:
+  selector:
+    app: locodex-nginx
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+  type: LoadBalancer
+---
+# Prometheus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-prometheus
+  namespace: locodex
+  labels:
+    app: locodex-prometheus
+spec:
+  selector:
+    app: locodex-prometheus
+  ports:
+  - name: http
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-grafana
+  namespace: locodex
+  labels:
+    app: locodex-grafana
+spec:
+  selector:
+    app: locodex-grafana
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    protocol: TCP
+  type: ClusterIP
+---
+# Jaeger Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-jaeger
+  namespace: locodex
+  labels:
+    app: locodex-jaeger
+spec:
+  selector:
+    app: locodex-jaeger
+  ports:
+  - name: ui
+    port: 16686
+    targetPort: 16686
+    protocol: TCP
+  - name: collector
+    port: 14268
+    targetPort: 14268
+    protocol: TCP
+  type: ClusterIP
+---
+# Flower Service (Celery Monitoring)
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-flower
+  namespace: locodex
+  labels:
+    app: locodex-flower
+spec:
+  selector:
+    app: locodex-flower
+  ports:
+  - name: http
+    port: 5555
+    targetPort: 5555
+    protocol: TCP
+  type: ClusterIP
+---
+# MinIO Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: locodex-minio
+  namespace: locodex
+  labels:
+    app: locodex-minio
+spec:
+  selector:
+    app: locodex-minio
+  ports:
+  - name: api
+    port: 9000
+    targetPort: 9000
+    protocol: TCP
+  - name: console
+    port: 9001
+    targetPort: 9001
+    protocol: TCP
+  type: ClusterIP

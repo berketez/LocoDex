@@ -1,0 +1,135 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: locodex-config
+  namespace: locodex
+data:
+  # AI Agent Configuration
+  NODE_ENV: "production"
+  API_PORT: "3001"
+  LOG_LEVEL: "info"
+  
+  # Deep Research Configuration
+  PYTHONUNBUFFERED: "1"
+  LOCAL_MODE: "true"
+  
+  # DeepSearch Configuration
+  FLASK_ENV: "production"
+  
+  # Sandbox Configuration
+  SANDBOX_MODE: "true"
+  EXECUTION_TIMEOUT: "30"
+  MAX_MEMORY: "128m"
+  MAX_CPU: "0.25"
+  PYTHONDONTWRITEBYTECODE: "1"
+  
+  # Database URLs
+  REDIS_HOST: "locodex-redis"
+  REDIS_PORT: "6379"
+  MONGODB_URL: "mongodb://locodex-mongodb:27017/deepsearch"
+  ELASTICSEARCH_URL: "http://locodex-elasticsearch:9200"
+  
+  # External Services
+  OLLAMA_HOST: "host.docker.internal:11434"
+  LMSTUDIO_HOST: "host.docker.internal:1234"
+  
+  # Celery Configuration
+  CELERY_BROKER_URL: "redis://locodex-redis:6379/1"
+  CELERY_RESULT_BACKEND: "redis://locodex-redis:6379/1"
+  
+  # MinIO Configuration
+  MINIO_ROOT_USER: "minioadmin"
+  
+  # Monitoring Configuration
+  GF_USERS_ALLOW_SIGN_UP: "false"
+  GF_SECURITY_ADMIN_USER: "admin"
+  GF_SECURITY_COOKIE_SECURE: "true"
+  GF_SECURITY_COOKIE_SAMESITE: "strict"
+  
+  # Elasticsearch Configuration
+  ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+  discovery.type: "single-node"
+  xpack.security.enabled: "false"
+  
+  # MongoDB Configuration
+  MONGO_INITDB_DATABASE: "deepsearch"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: locodex
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        upstream ai-agent {
+            server locodex-ai-agent:3001;
+        }
+        
+        upstream deepsearch {
+            server locodex-deepsearch:5000;
+        }
+        
+        upstream deep-research {
+            server locodex-deep-research:8001;
+        }
+        
+        server {
+            listen 80;
+            server_name localhost;
+            
+            location /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+            
+            location /api/agent/ {
+                proxy_pass http://ai-agent/;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+            
+            location /api/deepsearch/ {
+                proxy_pass http://deepsearch/;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+            
+            location /api/research/ {
+                proxy_pass http://deep-research/;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+            
+            location / {
+                root /usr/share/nginx/html;
+                index index.html index.htm;
+                try_files $uri $uri/ /index.html;
+            }
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: locodex
+data:
+  redis.conf: |
+    maxmemory 512mb
+    maxmemory-policy allkeys-lru
+    appendonly yes
+    save 900 1
+    save 300 10
+    save 60 10000
