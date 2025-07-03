@@ -331,16 +331,8 @@ function createMenu() {
         },
         { type: "separator" },
         {
-          label: "GitHub'da Görüntüle",
-          click: () => {
-            shell.openExternal("https://github.com/locodex/locodex");
-          },
-        },
-        {
-          label: "Sorun Bildir",
-          click: () => {
-            shell.openExternal("https://github.com/locodex/locodex/issues");
-          },
+          label: "Hakkında",
+          click: () => showAbout(),
         },
       ],
     },
