@@ -115,21 +115,21 @@ const SystemMonitoringPanel = ({ systemStats, selectedModel, currentPlan, activi
                   <span className="text-sm text-gray-600 dark:text-gray-400">CPU</span>
                   <div className="flex items-center space-x-2">
                     <Progress value={systemStats?.cpu || 0} className="w-16 h-2" />
-                    <span className="text-sm font-medium">{systemStats?.cpu || 0}%</span>
+                    <span className="text-sm font-medium">{(systemStats?.cpu || 0).toFixed(1)}%</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">RAM</span>
                   <div className="flex items-center space-x-2">
                     <Progress value={systemStats?.memory || 0} className="w-16 h-2" />
-                    <span className="text-sm font-medium">{systemStats?.memory || 0}%</span>
+                    <span className="text-sm font-medium">{(systemStats?.memory || 0).toFixed(1)}%</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Disk</span>
                   <div className="flex items-center space-x-2">
                     <Progress value={systemStats?.disk || 0} className="w-16 h-2" />
-                    <span className="text-sm font-medium">{systemStats?.disk || 0}%</span>
+                    <span className="text-sm font-medium">{(systemStats?.disk || 0).toFixed(1)}%</span>
                   </div>
                 </div>
               </CardContent>
