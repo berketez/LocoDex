@@ -23,6 +23,7 @@ import EnvironmentManager from '@/components/EnvironmentManager.jsx'
 import DeepResearch from '@/components/DeepResearch.jsx'
 import FileUpload from '@/components/FileUpload.jsx'
 import RAGChat from '@/components/RAGChat.jsx'
+import AIModelTraining from '@/components/AIModelTraining.jsx'
 import { systemPrompts } from '@/utils/systemPrompts.js'
 import HallucinationDetector from '@/utils/hallucinationDetector.js'
 import { 
@@ -1138,7 +1139,7 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
               <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4">
-                <TabsList className="grid w-full grid-cols-5">
+                <TabsList className="grid w-full grid-cols-6">
                   <TabsTrigger value="chat" className="flex items-center space-x-2">
                     <Bot className="w-4 h-4" />
                     <span>Sohbet</span>
@@ -1167,9 +1168,9 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
                     <Search className="w-4 h-4" />
                     <span>Araştırma</span>
                   </TabsTrigger>
-                  <TabsTrigger value="rag-finetuning" className="flex items-center space-x-2">
-                    <FileText className="w-4 h-4" />
-                    <span>RAG & Fine-tuning</span>
+                  <TabsTrigger value="ai-training" className="flex items-center space-x-2">
+                    <Brain className="w-4 h-4" />
+                    <span>AI Training</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -1462,6 +1463,11 @@ print(f"Pi sayısı: {math.pi}")
 
               <TabsContent value="research" className="flex-1">
                 <DeepResearch />
+              </TabsContent>
+
+              {/* AI Training Tab */}
+              <TabsContent value="ai-training" className="flex-1">
+                <AIModelTraining />
               </TabsContent>
 
               {/* RAG & Fine-tuning Tab */}

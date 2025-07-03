@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
@@ -45,8 +45,8 @@ import {
   Wifi,
   Lock
 } from 'lucide-react'
-import { AnimatePresence } from 'framer-motion'
-import { locoDexAPI } from '@/services/api'
+import { AnimatePresence, motion } from 'framer-motion'
+import { locoDexAPI } from '@/services/api/index.js'
 
 const EnvironmentManager = ({ className = '' }) => {
   const [environments, setEnvironments] = useState({})
@@ -103,6 +103,32 @@ const EnvironmentManager = ({ className = '' }) => {
       comingSoon: true
     }
   }), []);
+
+  const getServiceDisplayName = useCallback((serviceName) => {
+    const names = {
+      'ai-agent': 'AI Agent',
+      'sandbox': 'Sandbox',
+      'api-gateway': 'API Gateway'
+    }
+    return names[serviceName] || serviceName
+  }, [])
+
+  const getEnvironmentServices = useCallback((envKey, status) => {
+    const envDef = environmentDefinitions[envKey]
+    if (!envDef.services || envDef.services.length === 0) return []
+
+    return envDef.services.map(serviceName => {
+      const serviceStatus = status?.dockerServices?.[serviceName]
+      return {
+        name: serviceName,
+        displayName: getServiceDisplayName(serviceName),
+        status: serviceStatus?.status || 'stopped',
+        port: serviceStatus?.port,
+        containerId: serviceStatus?.containerId
+      }
+    })
+  }, [environmentDefinitions, getServiceDisplayName])
+
   const initializeEnvironments = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -167,30 +193,6 @@ const EnvironmentManager = ({ className = '' }) => {
     }
   }
 
-  const getEnvironmentServices = useCallback((envKey, status) => {
-    const envDef = environmentDefinitions[envKey]
-    if (!envDef.services || envDef.services.length === 0) return []
-
-    return envDef.services.map(serviceName => {
-      const serviceStatus = status?.dockerServices?.[serviceName]
-      return {
-        name: serviceName,
-        displayName: getServiceDisplayName(serviceName),
-        status: serviceStatus?.status || 'stopped',
-        port: serviceStatus?.port,
-        containerId: serviceStatus?.containerId
-      }
-    })
-  }, [environmentDefinitions])
-
-  const getServiceDisplayName = (serviceName) => {
-    const names = {
-      'ai-agent': 'AI Agent',
-      'sandbox': 'Sandbox',
-      'api-gateway': 'API Gateway'
-    }
-    return names[serviceName] || serviceName
-  }
 
   const updateServiceStatus = (data) => {
     setEnvironments(prev => {
@@ -817,7 +819,7 @@ const MonitoringPanel = ({ systemStatus }) => {
 
 // Logs Panel Component
 const LogsPanel = ({ logs, environments, onGetLogs }) => {
-  const [selectedService, setSelectedService] = useState('')
+  const [selectedService, setSelectedService] = React.useState('')
 
   const allServices = Object.entries(environments)
     .filter(([, env]) => env.services && env.services.length > 0)
