@@ -1,0 +1,73 @@
+# Dockerfile for LocoDex AI Agent Service
+FROM node:20-alpine3.20
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    curl \
+    git \
+    bash \
+    && rm -rf /var/cache/apk/*
+
+# Apply latest security patches for Alpine packages
+RUN apk --no-cache upgrade
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S locodex && \
+    adduser -S locodex -u 1001 -G locodex
+
+# Copy package files
+COPY package*.json ./
+
+# Remove ES module type to allow CommonJS
+RUN sed -i '/"type"/d' package.json
+
+# Install Node.js dependencies
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Install AI service Node dependencies
+RUN npm install --production express cors helmet express-rate-limit node-fetch@2 ws
+
+# Copy application code
+COPY src/ ./src/
+COPY electron/ ./electron/
+COPY assets/ ./assets/
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/logs /app/temp && \
+    chown -R locodex:locodex /app
+
+# Install Python dependencies for AI processing
+COPY scripts/requirements-cli.txt ./requirements.txt
+RUN apk add --no-cache --virtual .build-deps build-base && \
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
+    apk del .build-deps
+
+# Copy AI service scripts
+COPY docker/ai-agent/ ./ai-service/
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV API_PORT=3001
+ENV LOG_LEVEL=info
+ENV PYTHONPATH=/app/ai-service
+ENV PYTHON_UNBUFFERED=1
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Switch to non-root user
+USER locodex
+
+# Start the AI agent service
+CMD ["node", "ai-service/server.js"]
+

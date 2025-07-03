@@ -1,0 +1,99 @@
+# Dockerfile for LocoDex Sandbox Service
+FROM ubuntu:22.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nodejs \
+    npm \
+    git \
+    curl \
+    wget \
+    vim \
+    nano \
+    htop \
+    procps \
+    net-tools \
+    iputils-ping \
+    dnsutils \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    software-properties-common \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create sandbox user with restricted permissions
+RUN groupadd -r sandbox && \
+    useradd -r -g sandbox -d /home/sandbox -s /bin/bash sandbox && \
+    mkdir -p /home/sandbox/workspace && \
+    chown -R sandbox:sandbox /home/sandbox
+
+# Install Python packages for sandbox
+RUN pip3 install --no-cache-dir \
+    numpy \
+    pandas \
+    matplotlib \
+    seaborn \
+    requests \
+    beautifulsoup4 \
+    flask \
+    flask_cors \
+    fastapi \
+    uvicorn \
+    jupyter \
+    ipython \
+    psutil
+
+# Install Node.js packages globally for sandbox
+RUN npm install -g \
+    express \
+    lodash \
+    axios \
+    moment \
+    uuid
+
+# Copy sandbox service files
+COPY docker/sandbox/ /opt/sandbox/
+RUN chmod +x /opt/sandbox/*.sh
+
+# Set up security restrictions - removed sudo access for security
+# RUN echo "sandbox ALL=(ALL) NOPASSWD: /usr/bin/timeout" >> /etc/sudoers && \
+#     echo "sandbox ALL=(ALL) NOPASSWD: /usr/bin/kill" >> /etc/sudoers
+
+# Create workspace directories
+RUN mkdir -p /home/sandbox/workspace/{python,nodejs,data,output} && \
+    chown -R sandbox:sandbox /home/sandbox/workspace
+
+# Set environment variables
+ENV SANDBOX_MODE=true
+ENV EXECUTION_TIMEOUT=30
+ENV MAX_MEMORY=512m
+ENV MAX_CPU=0.5
+ENV PYTHONPATH=/home/sandbox/workspace/python
+ENV NODE_PATH=/home/sandbox/workspace/nodejs
+
+# Expose port for sandbox API
+EXPOSE 3002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3002/health || exit 1
+
+# Copy entrypoint script
+COPY docker/sandbox/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Switch to sandbox user
+USER sandbox
+WORKDIR /home/sandbox
+
+# Start sandbox service
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["python3", "/opt/sandbox/sandbox_server.py"]
+

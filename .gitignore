@@ -1,0 +1,189 @@
+# =======================================
+# 🔐 CRITICAL SECURITY FILES
+# =======================================
+# NEVER COMMIT THESE FILES!
+
+# Environment files containing secrets
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+
+# Backup environment files
+.env.backup
+.env.bak
+.env.old
+
+# Secret keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+secrets/
+keys/
+certs/
+
+# =======================================
+# 📁 BUILD AND DISTRIBUTION
+# =======================================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+dist-electron/
+build/
+out/
+
+# Electron specific
+app.asar
+*.dmg
+*.exe
+*.deb
+*.rpm
+*.snap
+
+# =======================================
+# 💾 DEVELOPMENT FILES
+# =======================================
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =======================================
+# 📊 DATA AND LOGS
+# =======================================
+
+# Application data
+data/
+logs/
+*.log
+
+# Research results (may contain sensitive info)
+research_results/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# =======================================
+# 🐳 DOCKER AND CONTAINERS
+# =======================================
+
+# Docker volumes
+docker-volumes/
+postgres-data/
+redis-data/
+
+# =======================================
+# 🧪 TESTING
+# =======================================
+
+# Test coverage
+coverage/
+*.lcov
+
+# =======================================
+# 📦 PACKAGE MANAGERS
+# =======================================
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# npm
+package-lock.json
+
+# pnpm
+pnpm-lock.yaml
+
+# =======================================
+# 🔧 MISCELLANEOUS
+# =======================================
+
+# Local configuration
+local.config.js
+local.config.json
+
+# Cache directories
+.cache/
+.next/
+.nuxt/
+.vitepress/cache
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.parcel-cache
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# =======================================
+# ⚠️ SECURITY REMINDER
+# =======================================
+# 
+# Before committing any file, double-check:
+# 1. No hardcoded passwords or API keys
+# 2. No personal or sensitive information
+# 3. No production credentials
+# 4. No private keys or certificates
+# 
+# Use: git status && git diff --cached
+# to review changes before committing
+#
+# =======================================

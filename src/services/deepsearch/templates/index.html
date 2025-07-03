@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocoDex DeepSearch - Advanced AI Research Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .search-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .search-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .search-input-container {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 50px 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 50px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-button {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-button:hover {
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .search-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .option-group label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .option-group select,
+        .option-group input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .advanced-toggle {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .advanced-toggle button {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: underline;
+        }
+
+        .advanced-options {
+            display: none;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .advanced-options.show {
+            display: block;
+        }
+
+        .results-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .results-count {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .results-time {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .result-item {
+            border-bottom: 1px solid #f0f0f0;
+            padding: 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .result-item:hover {
+            background: #f9f9f9;
+            margin: 0 -15px;
+            padding: 20px 15px;
+            border-radius: 10px;
+        }
+
+        .result-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a0dab;
+            text-decoration: none;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .result-title:hover {
+            text-decoration: underline;
+        }
+
+        .result-url {
+            color: #006621;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .result-summary {
+            color: #545454;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .result-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .result-score {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .result-type {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .result-date {
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #c62828;
+        }
+
+        .stats-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .filters-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-tag {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .filter-tag .remove {
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .filter-tag .remove:hover {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .search-options {
+                grid-template-columns: 1fr;
+            }
+
+            .results-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header animate__animated animate__fadeInDown">
+            <h1><i class="fas fa-search"></i> LocoDex DeepSearch</h1>
+            <p>Advanced AI-Powered Research & Information Retrieval Platform</p>
+        </div>
+
+        <div class="stats-container animate__animated animate__fadeInUp">
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-item">
+                    <div class="stat-number" id="totalPages">-</div>
+                    <div class="stat-label">Indexed Pages</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalQueries">-</div>
+                    <div class="stat-label">Total Searches</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="uniqueDomains">-</div>
+                    <div class="stat-label">Unique Domains</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">24/7</div>
+                    <div class="stat-label">Always Online</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-container animate__animated animate__fadeInUp">
+            <form class="search-form" id="searchForm">
+                <div class="search-input-container">
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        id="searchInput" 
+                        placeholder="Enter your research query..."
+                        required
+                    >
+                    <button type="submit" class="search-button">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+
+                <div class="search-options">
+                    <div class="option-group">
+                        <label for="searchType">Search Type</label>
+                        <select id="searchType">
+                            <option value="deep">Deep Search</option>
+                            <option value="quick">Quick Search</option>
+                            <option value="academic">Academic</option>
+                            <option value="news">News</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label for="timeRange">Time Range</label>
+                        <select id="timeRange">
+                            <option value="all">All Time</option>
+                            <option value="day">Past Day</option>
+                            <option value="week">Past Week</option>
+                            <option value="month">Past Month</option>
+                            <option value="year">Past Year</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label for="language">Language</label>
+                        <select id="language">
+                            <option value="en">English</option>
+                            <option value="tr">Turkish</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="all">All Languages</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label for="maxResults">Max Results</label>
+                        <select id="maxResults">
+                            <option value="10">10 Results</option>
+                            <option value="25">25 Results</option>
+                            <option value="50" selected>50 Results</option>
+                            <option value="100">100 Results</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="advanced-toggle">
+                    <button type="button" id="advancedToggle">
+                        <i class="fas fa-cog"></i> Advanced Options
+                    </button>
+                </div>
+
+                <div class="advanced-options" id="advancedOptions">
+                    <div class="search-options">
+                        <div class="option-group">
+                            <label for="contentType">Content Type</label>
+                            <select id="contentType" multiple>
+                                <option value="article" selected>Articles</option>
+                                <option value="blog" selected>Blogs</option>
+                                <option value="news" selected>News</option>
+                                <option value="academic">Academic Papers</option>
+                                <option value="wiki">Wiki Pages</option>
+                                <option value="product">Products</option>
+                            </select>
+                        </div>
+
+                        <div class="option-group">
+                            <label for="domainFilter">Include Domains</label>
+                            <input type="text" id="domainFilter" placeholder="e.g., wikipedia.org, arxiv.org">
+                        </div>
+
+                        <div class="option-group">
+                            <label for="excludeDomains">Exclude Domains</label>
+                            <input type="text" id="excludeDomains" placeholder="e.g., facebook.com, twitter.com">
+                        </div>
+
+                        <div class="option-group">
+                            <label for="maxDepth">Crawl Depth</label>
+                            <select id="maxDepth">
+                                <option value="1">Depth 1</option>
+                                <option value="2">Depth 2</option>
+                                <option value="3" selected>Depth 3</option>
+                                <option value="4">Depth 4</option>
+                                <option value="5">Depth 5</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="results-container" id="resultsContainer">
+            <div class="results-header">
+                <div class="results-count" id="resultsCount">0 results found</div>
+                <div class="results-time" id="resultsTime">Search completed in 0.00 seconds</div>
+            </div>
+
+            <div class="filters-container" id="filtersContainer"></div>
+
+            <div id="resultsContent"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        class LocoDexDeepSearch {
+            constructor() {
+                this.apiBase = '/api';
+                this.socket = io();
+                this.currentQuery = null;
+                this.searchStartTime = null;
+                
+                this.initializeEventListeners();
+                this.loadStats();
+                this.setupSocketListeners();
+            }
+
+            initializeEventListeners() {
+                // Search form submission
+                document.getElementById('searchForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.performSearch();
+                });
+
+                // Advanced options toggle
+                document.getElementById('advancedToggle').addEventListener('click', () => {
+                    const advancedOptions = document.getElementById('advancedOptions');
+                    advancedOptions.classList.toggle('show');
+                    
+                    const icon = document.querySelector('#advancedToggle i');
+                    if (advancedOptions.classList.contains('show')) {
+                        icon.className = 'fas fa-chevron-up';
+                    } else {
+                        icon.className = 'fas fa-cog';
+                    }
+                });
+
+                // Real-time search as user types (debounced)
+                let searchTimeout;
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        if (e.target.value.length > 3) {
+                            this.showSuggestions(e.target.value);
+                        }
+                    }, 500);
+                });
+            }
+
+            setupSocketListeners() {
+                this.socket.on('search_progress', (data) => {
+                    console.log('Search progress:', data);
+                    // Update UI with search progress
+                });
+
+                this.socket.on('search_complete', (data) => {
+                    console.log('Search complete:', data);
+                    // Handle search completion
+                });
+
+                this.socket.on('search_error', (data) => {
+                    console.error('Search error:', data);
+                    this.showError(data.error);
+                });
+            }
+
+            async loadStats() {
+                try {
+                    const response = await fetch(`${this.apiBase}/stats`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        document.getElementById('totalPages').textContent = 
+                            this.formatNumber(data.stats.total_pages);
+                        document.getElementById('totalQueries').textContent = 
+                            this.formatNumber(data.stats.total_queries);
+                        document.getElementById('uniqueDomains').textContent = 
+                            this.formatNumber(data.stats.unique_domains);
+                    }
+                } catch (error) {
+                    console.error('Failed to load stats:', error);
+                }
+            }
+
+            async performSearch() {
+                const query = document.getElementById('searchInput').value.trim();
+                if (!query) return;
+
+                this.currentQuery = query;
+                this.searchStartTime = Date.now();
+
+                // Show loading state
+                this.showLoading();
+
+                // Collect search parameters
+                const searchParams = {
+                    query: query,
+                    search_type: document.getElementById('searchType').value,
+                    time_range: document.getElementById('timeRange').value,
+                    language: document.getElementById('language').value,
+                    max_results: parseInt(document.getElementById('maxResults').value),
+                    max_depth: parseInt(document.getElementById('maxDepth').value),
+                    content_type: Array.from(document.getElementById('contentType').selectedOptions)
+                        .map(option => option.value),
+                    domain_filter: this.parseCommaSeparated(document.getElementById('domainFilter').value),
+                    exclude_domains: this.parseCommaSeparated(document.getElementById('excludeDomains').value),
+                    user_id: this.getUserId(),
+                    session_id: this.getSessionId()
+                };
+
+                try {
+                    const response = await fetch(`${this.apiBase}/search`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(searchParams)
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.displayResults(data.results, data.total_results);
+                    } else {
+                        this.showError(data.error || 'Search failed');
+                    }
+                } catch (error) {
+                    console.error('Search error:', error);
+                    this.showError('Network error occurred');
+                }
+            }
+
+            showLoading() {
+                const resultsContainer = document.getElementById('resultsContainer');
+                resultsContainer.style.display = 'block';
+                resultsContainer.innerHTML = `
+                    <div class="loading">
+                        <i class="fas fa-spinner"></i>
+                        <p>Searching the web with AI-powered deep analysis...</p>
+                    </div>
+                `;
+            }
+
+            displayResults(results, totalResults) {
+                const searchTime = (Date.now() - this.searchStartTime) / 1000;
+                
+                // Update results header
+                document.getElementById('resultsCount').textContent = 
+                    `${this.formatNumber(totalResults)} results found`;
+                document.getElementById('resultsTime').textContent = 
+                    `Search completed in ${searchTime.toFixed(2)} seconds`;
+
+                // Display active filters
+                this.displayActiveFilters();
+
+                // Generate results HTML
+                const resultsHTML = results.map(result => this.generateResultHTML(result)).join('');
+
+                // Update results container
+                const resultsContainer = document.getElementById('resultsContainer');
+                resultsContainer.innerHTML = `
+                    <div class="results-header">
+                        <div class="results-count">${this.formatNumber(totalResults)} results found</div>
+                        <div class="results-time">Search completed in ${searchTime.toFixed(2)} seconds</div>
+                    </div>
+                    <div class="filters-container" id="filtersContainer"></div>
+                    <div id="resultsContent">${resultsHTML}</div>
+                `;
+
+                this.displayActiveFilters();
+
+                // Add animation to results
+                const resultItems = document.querySelectorAll('.result-item');
+                resultItems.forEach((item, index) => {
+                    item.style.animationDelay = `${index * 0.1}s`;
+                    item.classList.add('animate__animated', 'animate__fadeInUp');
+                });
+
+                // Update stats
+                this.loadStats();
+            }
+
+            generateResultHTML(result) {
+                const publishDate = result.publish_date ? 
+                    new Date(result.publish_date).toLocaleDateString() : 'Unknown date';
+                
+                const credibilityColor = this.getScoreColor(result.credibility_score);
+                const relevanceColor = this.getScoreColor(result.relevance_score);
+
+                return `
+                    <div class="result-item">
+                        <a href="${result.url}" target="_blank" class="result-title">
+                            ${this.escapeHtml(result.title)}
+                        </a>
+                        <div class="result-url">${this.escapeHtml(result.domain)}</div>
+                        <div class="result-summary">${this.escapeHtml(result.summary)}</div>
+                        <div class="result-meta">
+                            <span class="result-score" style="background-color: ${credibilityColor}20; color: ${credibilityColor}">
+                                Credibility: ${(result.credibility_score * 100).toFixed(0)}%
+                            </span>
+                            <span class="result-score" style="background-color: ${relevanceColor}20; color: ${relevanceColor}">
+                                Relevance: ${(result.relevance_score * 100).toFixed(0)}%
+                            </span>
+                            <span class="result-type">${result.content_type}</span>
+                            <span class="result-date">${publishDate}</span>
+                            <span class="result-words">${this.formatNumber(result.word_count)} words</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            displayActiveFilters() {
+                const filtersContainer = document.getElementById('filtersContainer');
+                const filters = [];
+
+                // Collect active filters
+                const searchType = document.getElementById('searchType').value;
+                if (searchType !== 'deep') {
+                    filters.push({ label: `Type: ${searchType}`, value: 'searchType' });
+                }
+
+                const timeRange = document.getElementById('timeRange').value;
+                if (timeRange !== 'all') {
+                    filters.push({ label: `Time: ${timeRange}`, value: 'timeRange' });
+                }
+
+                const language = document.getElementById('language').value;
+                if (language !== 'en') {
+                    filters.push({ label: `Language: ${language}`, value: 'language' });
+                }
+
+                const domainFilter = document.getElementById('domainFilter').value;
+                if (domainFilter) {
+                    filters.push({ label: `Domains: ${domainFilter}`, value: 'domainFilter' });
+                }
+
+                // Generate filters HTML
+                const filtersHTML = filters.map(filter => `
+                    <div class="filter-tag">
+                        ${filter.label}
+                        <span class="remove" onclick="deepSearch.removeFilter('${filter.value}')">
+                            <i class="fas fa-times"></i>
+                        </span>
+                    </div>
+                `).join('');
+
+                filtersContainer.innerHTML = filtersHTML;
+            }
+
+            removeFilter(filterType) {
+                // Reset specific filter
+                switch (filterType) {
+                    case 'searchType':
+                        document.getElementById('searchType').value = 'deep';
+                        break;
+                    case 'timeRange':
+                        document.getElementById('timeRange').value = 'all';
+                        break;
+                    case 'language':
+                        document.getElementById('language').value = 'en';
+                        break;
+                    case 'domainFilter':
+                        document.getElementById('domainFilter').value = '';
+                        break;
+                }
+
+                // Re-perform search
+                this.performSearch();
+            }
+
+            showError(message) {
+                const resultsContainer = document.getElementById('resultsContainer');
+                resultsContainer.style.display = 'block';
+                resultsContainer.innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Error:</strong> ${this.escapeHtml(message)}
+                    </div>
+                `;
+            }
+
+            async showSuggestions(query) {
+                // This would implement search suggestions
+                // For now, just log the query
+                console.log('Showing suggestions for:', query);
+            }
+
+            // Utility functions
+            parseCommaSeparated(value) {
+                return value ? value.split(',').map(s => s.trim()).filter(s => s) : [];
+            }
+
+            formatNumber(num) {
+                if (num >= 1000000) {
+                    return (num / 1000000).toFixed(1) + 'M';
+                } else if (num >= 1000) {
+                    return (num / 1000).toFixed(1) + 'K';
+                }
+                return num.toString();
+            }
+
+            getScoreColor(score) {
+                if (score >= 0.8) return '#4caf50';
+                if (score >= 0.6) return '#ff9800';
+                if (score >= 0.4) return '#f44336';
+                return '#9e9e9e';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            getUserId() {
+                let userId = localStorage.getItem('locodex_user_id');
+                if (!userId) {
+                    userId = 'user_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('locodex_user_id', userId);
+                }
+                return userId;
+            }
+
+            getSessionId() {
+                let sessionId = sessionStorage.getItem('locodex_session_id');
+                if (!sessionId) {
+                    sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+                    sessionStorage.setItem('locodex_session_id', sessionId);
+                }
+                return sessionId;
+            }
+        }
+
+        // Initialize the application
+        const deepSearch = new LocoDexDeepSearch();
+
+        // Add some keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + K to focus search
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+
+            // Escape to clear search
+            if (e.key === 'Escape') {
+                document.getElementById('searchInput').value = '';
+                document.getElementById('resultsContainer').style.display = 'none';
+            }
+        });
+
+        // Add some easter eggs
+        let konamiCode = [];
+        const konamiSequence = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65];
+
+        document.addEventListener('keydown', (e) => {
+            konamiCode.push(e.keyCode);
+            if (konamiCode.length > konamiSequence.length) {
+                konamiCode.shift();
+            }
+            
+            if (konamiCode.join(',') === konamiSequence.join(',')) {
+                document.body.style.transform = 'rotate(360deg)';
+                document.body.style.transition = 'transform 2s';
+                setTimeout(() => {
+                    document.body.style.transform = '';
+                    document.body.style.transition = '';
+                }, 2000);
+                konamiCode = [];
+            }
+        });
+    </script>
+</body>
+</html>
+

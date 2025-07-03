@@ -1,0 +1,522 @@
+# LocoDex DeepSearch Configuration
+# Advanced AI-powered research and information retrieval system
+
+# Database Configuration
+database:
+  sqlite:
+    path: "data/deepsearch.db"
+    backup_interval: 3600  # seconds
+    max_connections: 100
+  
+  redis:
+    enabled: true
+    host: "localhost"
+    port: 6379
+    db: 0
+    password: null
+    max_connections: 50
+    ttl: 3600  # default cache TTL in seconds
+  
+  mongodb:
+    enabled: false
+    uri: "mongodb://localhost:27017/"
+    database: "deepsearch"
+    collection_prefix: "locodex_"
+  
+  elasticsearch:
+    enabled: false
+    host: "localhost:9200"
+    index_prefix: "locodex_"
+    shards: 1
+    replicas: 0
+
+# Search Engine Configuration
+search:
+  max_results: 50
+  max_crawl_depth: 3
+  enable_real_time_crawl: true
+  cache_ttl: 3600
+  semantic_search_enabled: true
+  
+  # Result ranking weights
+  ranking_weights:
+    relevance: 0.4
+    credibility: 0.3
+    freshness: 0.2
+    quality: 0.1
+  
+  # Search types configuration
+  search_types:
+    deep:
+      max_depth: 3
+      enable_crawling: true
+      semantic_analysis: true
+      credibility_check: true
+    quick:
+      max_depth: 1
+      enable_crawling: false
+      semantic_analysis: false
+      credibility_check: false
+    academic:
+      max_depth: 2
+      enable_crawling: true
+      semantic_analysis: true
+      credibility_check: true
+      preferred_domains:
+        - "arxiv.org"
+        - "pubmed.ncbi.nlm.nih.gov"
+        - "scholar.google.com"
+        - "ieee.org"
+        - "acm.org"
+    news:
+      max_depth: 1
+      enable_crawling: true
+      semantic_analysis: false
+      credibility_check: true
+      time_preference: "recent"
+      preferred_domains:
+        - "reuters.com"
+        - "ap.org"
+        - "bbc.com"
+        - "npr.org"
+
+# Web Crawler Configuration
+crawler:
+  max_pages_per_domain: 100
+  crawl_delay: 1.0  # seconds between requests
+  max_concurrent_crawls: 10
+  respect_robots: true
+  timeout: 30  # seconds
+  max_retries: 3
+  retry_delay: 5  # seconds
+  
+  # User agent configuration
+  user_agent: "LocoDex-DeepSearch/2.0 (+https://locodex.ai/bot)"
+  
+  # Domain-specific settings
+  domain_settings:
+    "wikipedia.org":
+      delay: 0.5
+      max_pages: 500
+      priority: high
+    "arxiv.org":
+      delay: 1.0
+      max_pages: 200
+      priority: high
+    "github.com":
+      delay: 0.5
+      max_pages: 100
+      priority: medium
+    "stackoverflow.com":
+      delay: 1.0
+      max_pages: 200
+      priority: medium
+    "reddit.com":
+      delay: 2.0
+      max_pages: 50
+      priority: low
+    "twitter.com":
+      delay: 2.0
+      max_pages: 50
+      priority: low
+    "linkedin.com":
+      delay: 2.0
+      max_pages: 30
+      priority: low
+  
+  # Blocked domains
+  blocked_domains:
+    - "facebook.com"
+    - "instagram.com"
+    - "tiktok.com"
+    - "pinterest.com"
+    - "snapchat.com"
+    - "adult-content.com"
+    - "spam-site.com"
+  
+  # Content type filters
+  allowed_content_types:
+    - "text/html"
+    - "application/xhtml+xml"
+  
+  # File size limits
+  max_file_size: 10485760  # 10MB in bytes
+  max_content_length: 1000000  # 1MB for content analysis
+
+# Semantic Analysis Configuration
+semantic:
+  enabled: true
+  
+  # Models configuration
+  models:
+    sentence_transformer: "all-MiniLM-L6-v2"
+    spacy_model: "en_core_web_sm"
+    
+  # NLP settings
+  nlp:
+    max_content_length: 1000000  # characters
+    extract_entities: true
+    extract_keywords: true
+    analyze_sentiment: true
+    extract_topics: true
+    calculate_readability: true
+    
+  # Keyword extraction
+  keywords:
+    max_features: 10000
+    min_df: 2
+    max_df: 0.8
+    ngram_range: [1, 3]
+    top_k: 20
+  
+  # Topic modeling
+  topics:
+    num_topics: 5
+    method: "simple_clustering"  # or "lda", "nmf"
+  
+  # Vector index configuration
+  vector_index:
+    enabled: true
+    dimension: 384  # for all-MiniLM-L6-v2
+    index_type: "flat"  # or "ivf", "hnsw"
+    metric: "cosine"
+
+# Credibility Analysis Configuration
+credibility:
+  enabled: true
+  
+  # Trusted domains with base scores
+  trusted_domains:
+    "wikipedia.org": 0.95
+    "arxiv.org": 0.90
+    "nature.com": 0.95
+    "science.org": 0.95
+    "pubmed.ncbi.nlm.nih.gov": 0.90
+    "scholar.google.com": 0.85
+    "ieee.org": 0.90
+    "acm.org": 0.90
+    "mit.edu": 0.90
+    "stanford.edu": 0.90
+    "harvard.edu": 0.90
+    "github.com": 0.80
+    "stackoverflow.com": 0.75
+  
+  # News sources credibility
+  news_sources:
+    "reuters.com": 0.90
+    "ap.org": 0.90
+    "bbc.com": 0.85
+    "npr.org": 0.85
+    "pbs.org": 0.85
+    "nytimes.com": 0.80
+    "washingtonpost.com": 0.80
+    "theguardian.com": 0.80
+    "wsj.com": 0.80
+    "economist.com": 0.85
+  
+  # Scoring weights
+  scoring_weights:
+    domain: 0.25
+    content: 0.20
+    author: 0.15
+    freshness: 0.10
+    citations: 0.10
+    technical: 0.10
+    social: 0.05
+    spam: 0.05
+  
+  # Low credibility indicators
+  low_credibility:
+    clickbait_domains:
+      - "buzzfeed.com"
+      - "upworthy.com"
+      - "viral.com"
+      - "clickhole.com"
+    suspicious_tlds:
+      - ".tk"
+      - ".ml"
+      - ".ga"
+      - ".cf"
+      - ".click"
+      - ".download"
+    spam_keywords:
+      - "miracle cure"
+      - "doctors hate"
+      - "one weird trick"
+      - "shocking truth"
+      - "secret revealed"
+
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+  
+  # Rate limiting
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 60
+    requests_per_hour: 1000
+    requests_per_day: 10000
+  
+  # CORS settings
+  cors:
+    enabled: true
+    origins: ["*"]
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    headers: ["Content-Type", "Authorization"]
+  
+  # Authentication
+  authentication:
+    enabled: false
+    jwt_secret: "your-secret-key-here"
+    token_expiry: 86400  # 24 hours
+  
+  # API versioning
+  versioning:
+    enabled: true
+    default_version: "v1"
+    supported_versions: ["v1"]
+
+# WebSocket Configuration
+websocket:
+  enabled: true
+  port: 5001
+  
+  # Real-time features
+  real_time:
+    search_progress: true
+    live_results: true
+    collaborative_search: false
+
+# Monitoring and Logging
+monitoring:
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    port: 8000
+    metrics_path: "/metrics"
+  
+  # Jaeger tracing
+  jaeger:
+    enabled: false
+    agent_host: "localhost"
+    agent_port: 6831
+    service_name: "locodex-deepsearch"
+  
+  # Health checks
+  health_checks:
+    enabled: true
+    endpoint: "/health"
+    interval: 30  # seconds
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # File logging
+  file:
+    enabled: true
+    path: "logs/deepsearch.log"
+    max_size: 10485760  # 10MB
+    backup_count: 5
+    rotation: "time"  # or "size"
+  
+  # Console logging
+  console:
+    enabled: true
+    colored: true
+  
+  # Structured logging
+  structured:
+    enabled: false
+    format: "json"
+
+# Security Configuration
+security:
+  # Input validation
+  input_validation:
+    max_query_length: 1000
+    allowed_characters: "alphanumeric_and_common_symbols"
+    sanitize_html: true
+  
+  # Content filtering
+  content_filtering:
+    enabled: true
+    block_adult_content: true
+    block_malware_sites: true
+    block_phishing_sites: true
+  
+  # Request filtering
+  request_filtering:
+    block_tor: false
+    block_vpn: false
+    block_suspicious_ips: true
+    max_requests_per_ip: 1000  # per hour
+
+# Performance Configuration
+performance:
+  # Caching
+  caching:
+    enabled: true
+    backend: "redis"  # or "memory", "file"
+    default_ttl: 3600
+    max_cache_size: 1073741824  # 1GB
+  
+  # Connection pooling
+  connection_pooling:
+    enabled: true
+    max_connections: 100
+    min_connections: 10
+    connection_timeout: 30
+  
+  # Async processing
+  async_processing:
+    enabled: true
+    max_workers: 10
+    queue_size: 1000
+  
+  # Memory management
+  memory:
+    max_memory_usage: 2147483648  # 2GB
+    gc_threshold: 0.8  # trigger GC at 80% memory usage
+
+# Backup and Recovery
+backup:
+  enabled: true
+  
+  # Database backup
+  database_backup:
+    interval: 86400  # daily
+    retention_days: 30
+    compression: true
+    encryption: false
+  
+  # Index backup
+  index_backup:
+    interval: 604800  # weekly
+    retention_weeks: 4
+  
+  # Configuration backup
+  config_backup:
+    interval: 86400  # daily
+    retention_days: 7
+
+# Development and Testing
+development:
+  # Debug mode
+  debug_mode: false
+  
+  # Test data
+  test_data:
+    enabled: false
+    sample_queries: 100
+    sample_pages: 1000
+  
+  # Profiling
+  profiling:
+    enabled: false
+    output_dir: "profiles/"
+  
+  # Mock services
+  mock_services:
+    enabled: false
+    mock_external_apis: true
+
+# Deployment Configuration
+deployment:
+  # Environment
+  environment: "production"  # development, staging, production
+  
+  # Scaling
+  scaling:
+    auto_scaling: false
+    min_instances: 1
+    max_instances: 10
+    cpu_threshold: 80
+    memory_threshold: 80
+  
+  # Load balancing
+  load_balancing:
+    enabled: false
+    algorithm: "round_robin"  # round_robin, least_connections, ip_hash
+  
+  # Health monitoring
+  health_monitoring:
+    enabled: true
+    check_interval: 30
+    failure_threshold: 3
+    recovery_threshold: 2
+
+# Integration Configuration
+integrations:
+  # External APIs
+  external_apis:
+    enabled: false
+    
+    # Search engines
+    search_engines:
+      google:
+        enabled: false
+        api_key: ""
+        cx: ""
+      bing:
+        enabled: false
+        api_key: ""
+      duckduckgo:
+        enabled: true
+        api_key: null
+    
+    # Social media
+    social_media:
+      twitter:
+        enabled: false
+        api_key: ""
+        api_secret: ""
+      reddit:
+        enabled: false
+        client_id: ""
+        client_secret: ""
+    
+    # Academic databases
+    academic:
+      arxiv:
+        enabled: true
+        api_base: "http://export.arxiv.org/api/query"
+      pubmed:
+        enabled: false
+        api_key: ""
+  
+  # Webhooks
+  webhooks:
+    enabled: false
+    endpoints: []
+  
+  # Message queues
+  message_queues:
+    enabled: false
+    backend: "redis"  # redis, rabbitmq, kafka
+    
+# Feature Flags
+features:
+  # Experimental features
+  experimental:
+    ai_summarization: true
+    visual_search: false
+    voice_search: false
+    collaborative_filtering: false
+  
+  # Beta features
+  beta:
+    advanced_analytics: true
+    custom_models: false
+    api_v2: false
+  
+  # Premium features
+  premium:
+    unlimited_searches: false
+    priority_crawling: false
+    custom_domains: false
+    advanced_filters: true
+

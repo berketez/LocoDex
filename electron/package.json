@@ -1,0 +1,10 @@
+{
+  "name": "locodex-electron",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "main.js",
+  "dependencies": {
+    "yauzl": "^2.10.0",
+    "systeminformation": "^5.27.7"
+  }
+}
