@@ -5,6 +5,8 @@ import time
 import requests
 import websockets
 import sys
+import os
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from rich.console import Console
 from rich.markdown import Markdown
@@ -27,12 +29,45 @@ async def async_input(prompt_text):
     except (KeyboardInterrupt, EOFError):
         return None
 
+def find_locodex_project_dir():
+    """LocoDex proje dizinini bul"""
+    current_dir = Path.cwd()
+    
+    # Önce mevcut dizini kontrol et
+    if (current_dir / 'docker-compose.yml').exists():
+        return current_dir
+    
+    # Yaygın konumları kontrol et
+    possible_locations = [
+        Path.home() / 'Desktop' / 'LocoDex-Final',
+        Path.home() / 'Documents' / 'LocoDex-Final',
+        Path.home() / 'LocoDex-Final',
+        Path('/Users') / os.getenv('USER', 'user') / 'Desktop' / 'LocoDex-Final',
+    ]
+    
+    for location in possible_locations:
+        if location.exists() and (location / 'docker-compose.yml').exists():
+            return location
+    
+    return None
+
 def check_docker_services():
     """Docker servislerini kontrol et ve gerekirse başlat"""
     console = Console()
     
-    # Docker servislerinin durumunu kontrol et
+    # LocoDex proje dizinini bul
+    project_dir = find_locodex_project_dir()
+    if not project_dir:
+        console.print("[bold red]❌ LocoDex proje dizini bulunamadı![/bold red]")
+        console.print("Lütfen LocoDex-Final dizininde çalıştırın veya dizin yolunu kontrol edin.")
+        return False
+    
+    # Proje dizinine geç
+    original_dir = os.getcwd()
+    os.chdir(project_dir)
+    
     try:
+        # Docker servislerinin durumunu kontrol et
         result = subprocess.run(['docker-compose', 'ps', '--services', '--filter', 'status=running'], 
                               capture_output=True, text=True, check=True)
         running_services = result.stdout.strip().split('\n') if result.stdout.strip() else []
@@ -66,6 +101,9 @@ def check_docker_services():
     except FileNotFoundError:
         console.print("[bold red]Docker Compose bulunamadı! Lütfen Docker'ı yükleyin.[/bold red]")
         return False
+    finally:
+        # Orijinal dizine geri dön
+        os.chdir(original_dir)
 
 def get_available_models():
     """LM Studio'dan mevcut modelleri al"""
