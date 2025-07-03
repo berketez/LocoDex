@@ -67,7 +67,7 @@ services:
           memory: 512M
     security_opt:
       - no-new-privileges:true
-      - seccomp:/app/seccomp-profile.json
+      - seccomp:/opt/sandbox/seccomp-profile.json
       - apparmor:docker-default
     user: "1000:1000"
     cap_drop:
