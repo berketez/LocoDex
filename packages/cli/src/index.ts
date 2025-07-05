@@ -880,5 +880,15 @@ program
     await deepSearchManager.start();
   });
 
+program
+  .command('agent')
+  .description('LocoDex AI Agent (Sohbet + Terminal)')
+  .option('-m, --model <model>', 'Kullanılacak model')
+  .action(async (options) => {
+    const { AgentManager } = await import('./commands/AgentManager.js');
+    const agentManager = new AgentManager();
+    await agentManager.start(options.model);
+  });
+
 program.parse();
 

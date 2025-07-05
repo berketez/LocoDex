@@ -4,6 +4,8 @@ import ora, { Ora } from 'ora';
 import * as readline from 'readline';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -28,93 +30,79 @@ export class DeepSearchManager {
     return new Promise((resolve, reject) => {
       this.spinner.start('Derin araştırma servisine bağlanılıyor...');
       try {
-        const ws = new WebSocket('ws://localhost:8001/research_ws', { timeout: 4000 });
+        const ws = new WebSocket('ws://localhost:8001/research_ws');
         this.ws = ws;
 
         ws.on('open', () => {
           this.spinner.succeed('Derin araştırma servisine başarıyla bağlanıldı!');
           
-          // Small delay to ensure proper console state
+          // Delay before showing prompt
           setTimeout(() => {
             this.promptForTopic();
-          }, 100);
+          }, 1000);
           resolve();
         });
 
         ws.on('message', (data: WebSocket.Data) => {
-          // Clear research timeout when any message is received
-          if (this.researchTimeout) {
-            clearTimeout(this.researchTimeout);
-            this.researchTimeout = null;
-          }
-          
-          // Clear progress interval
-          if (this.progressInterval) {
-            clearInterval(this.progressInterval);
-            this.progressInterval = null;
-          }
-          
-          this.spinner.stop();
-          const message = JSON.parse(data.toString());
-          console.log(chalk.gray(`DEBUG: Mesaj alındı: ${JSON.stringify(message)}`));
-
-          if (message.type === 'progress') {
-            // Bağlantı kuruldu mesajını özel olarak işle
-            if (message.message && message.message.includes('Bağlantı kuruldu, araştırma isteği bekleniyor')) {
+          try {
+            const message = JSON.parse(data.toString());
+            
+            // Don't interfere with readline for initial connection message
+            if (message.type === 'progress' && message.message && message.message.includes('Bağlantı kuruldu')) {
               console.log(chalk.green('✓ Servis hazır ve araştırma isteklerini bekliyor'));
               return;
             }
             
-            // Progress mesajlarını daha açıklayıcı yapalım
+            // Keep connection alive by responding to keepalive
+            if (message.type === 'keepalive') {
+              // Just acknowledge keepalive, don't show to user
+              return;
+            }
+            
+            // Clear timeouts for actual research messages
+            if (this.researchTimeout) {
+              clearTimeout(this.researchTimeout);
+              this.researchTimeout = null;
+            }
+            
+            if (this.progressInterval) {
+              clearInterval(this.progressInterval);
+              this.progressInterval = null;
+            }
+            
+            if (this.spinner.isSpinning) {
+              this.spinner.stop();
+            }
+
+          if (message.type === 'progress') {
+            
+            // Research progress mesajlarını güzelleştir ve göster
             let progressText = message.message;
             
-            // İngilizce mesajları Türkçeleştir
-            if (progressText.includes('Starting research')) {
-              progressText = '🚀 Araştırma başlatılıyor...';
-            } else if (progressText.includes('Generating research queries')) {
-              progressText = '📝 Araştırma sorguları oluşturuluyor...';
-            } else if (progressText.includes('Research queries generated')) {
-              progressText = '✓ Araştırma sorguları hazır!';
-            } else if (progressText.includes('Performing initial search')) {
-              progressText = '🔍 İlk arama yapılıyor...';
-            } else if (progressText.includes('Initial search complete')) {
-              progressText = '✓ İlk arama tamamlandı!';
-            } else if (progressText.includes('Conducting research iteration')) {
-              progressText = progressText.replace('Conducting research iteration', '🔄 Araştırma derinleştiriliyor');
-            } else if (progressText.includes('Searching')) {
-              progressText = progressText.replace('Searching', '🔎 Aranıyor:');
-            } else if (progressText.includes('Filtering and processing results')) {
-              progressText = '🔧 Sonuçlar filtreleniyor ve işleniyor...';
-            } else if (progressText.includes('Results filtered')) {
-              progressText = progressText.replace('Results filtered: kept', '✓ Sonuçlar filtrelendi:');
-              progressText = progressText.replace('sources', 'kaynak korundu');
-            } else if (progressText.includes('Generating final research report')) {
-              progressText = '📄 Final araştırma raporu hazırlanıyor...';
-            } else if (progressText.includes('Research complete')) {
-              progressText = '✅ Araştırma tamamlandı!';
-            } else if (progressText.includes('Google araması:')) {
-              progressText = progressText.replace('Google araması:', '🔎 Google\'da aranıyor:');
-            } else if (progressText.includes('Site ziyaret ediliyor:')) {
-              // URL'yi kısalt
-              const urlMatch = progressText.match(/Site ziyaret ediliyor: (.+)/);
-              if (urlMatch && urlMatch[1]) {
-                try {
-                  const url = new URL(urlMatch[1]);
-                  progressText = `🌐 Ziyaret ediliyor: ${url.hostname}`;
-                } catch {
-                  progressText = `🌐 Site ziyaret ediliyor...`;
+            // Sadece çok gereksiz detayları filtrele, araştırma adımlarını göster
+            if (progressText.includes('hakkında ne var bakalım')) {
+              progressText = '💭 Kaynak içeriği inceleniyor...';
+            }
+            
+            // Alt konu isimlerini sadece çok uzunsa kısalt (100+ karakter)
+            if (progressText.length > 120) {
+              if (progressText.includes('konusunu araştırıyorum')) {
+                const match = progressText.match(/🔎 '(.+?)' konusunu araştırıyorum/);
+                if (match && match[1].length > 80) {
+                  progressText = `🔎 '${match[1].substring(0, 80)}...' konusunu araştırıyorum`;
                 }
               }
             }
             
-            // Step bilgisini göster
+            // Step bilgisini daha sık göster
             if (message.step !== undefined && message.step > 0) {
               const percentage = Math.round(message.step * 100);
               progressText = `[%${percentage}] ${progressText}`;
             }
             
-            this.spinner.text = chalk.blue(progressText);
-            this.spinner.start();
+            // Progress mesajını direkt göster, spinner kullanma
+            console.log(chalk.cyan(`📋 ${progressText}`));
+            return;
           } else if (message.type === 'result') {
             console.log(chalk.green('\n--- Araştırma Sonucu ---'));
             console.log(message.data);
@@ -136,19 +124,23 @@ export class DeepSearchManager {
               console.log(chalk.yellow('\n💡 Çözüm:'));
               console.log(chalk.gray('   1. Proje kök dizininde .env dosyası oluşturun'));
               console.log(chalk.gray('   2. Aşağıdaki anahtarları ekleyin:'));
-              console.log(chalk.gray('      TOGETHER_API_KEY=your_key_here'));
+              console.log(chalk.gray('      # API anahtarları gerekli değil (lokal modeller kullanılıyor)'));
               console.log(chalk.gray('      TAVILY_API_KEY=your_key_here'));
               console.log(chalk.gray('   3. API anahtarlarını ilgili sitelerden alın:'));
-              console.log(chalk.gray('      - Together AI: https://together.ai'));
+              console.log(chalk.gray('      # Lokal model servisleri: Ollama, LM Studio'));
               console.log(chalk.gray('      - Tavily: https://tavily.com\n'));
             }
             
             this.promptForTopic();
           }
+          } catch (error) {
+            console.log(chalk.red(`WebSocket mesaj hatası: ${error}`));
+          }
         });
 
-        ws.on('close', () => {
+        ws.on('close', (code, reason) => {
           this.spinner.fail('Derin araştırma servisiyle bağlantı kesildi.');
+          console.log(chalk.gray(`Bağlantı kesilme nedeni: ${code} - ${reason}`));
           this.rl.close();
         });
 
@@ -166,7 +158,15 @@ export class DeepSearchManager {
   public async start(): Promise<void> {
     console.log(chalk.cyan('🤖 LocoDex Deep Research CLI Başlatılıyor...\n'));
 
-    await this.selectModel();
+    try {
+      await this.selectModel();
+    } catch (error) {
+      // Model bulunamadı, çıkış yap
+      process.exit(1);
+    }
+
+    // Docker servislerini otomatik başlat
+    await this.ensureDockerServices();
     
     // Model yükleme kontrolü
     if (this.selectedModel) {
@@ -194,31 +194,20 @@ export class DeepSearchManager {
         this.rl.close();
         return;
       }
-    } else {
-      console.log(chalk.blue('📝 Varsayılan TogetherAI modelleri kullanılacak.'));
     }
 
     try {
       await this.connect();
     } catch (error) {
-      this.spinner.warn(chalk.yellow('Servis bulunamadı. Otomatik olarak başlatılıyor...'));
-      this.spinner.start('`docker-compose up -d` komutu çalıştırılıyor...');
-
-      try {
-        await execAsync('docker-compose up -d');
-        this.spinner.succeed('Docker servisleri başlatıldı.');
-        this.spinner.start('Servislerin hazır olması için 5 saniye bekleniyor...');
-        await new Promise(res => setTimeout(res, 5000));
-
-        await this.connect(); // Second attempt
-      } catch (finalError) {
-        this.spinner.fail(chalk.red('Servisler başlatılamadı veya bağlantı yine başarısız oldu.'));
-        console.log(chalk.yellow('\n💡 Lütfen Docker\'ın çalıştığından emin olun ve tekrar deneyin.'));
-        if (finalError instanceof Error) {
-          console.log(chalk.gray(`   Hata detayı: ${finalError.message}`));
-        }
-        this.rl.close();
+      this.spinner.fail(chalk.red('Deep research servisi bulunamadı.'));
+      console.log(chalk.yellow('\n💡 Servis çalışmıyor. Çözüm:'));
+      console.log(chalk.gray('   1. Docker servislerini başlatın: docker-compose up -d'));
+      console.log(chalk.gray('   2. Veya manuel olarak servisi başlatın'));
+      console.log(chalk.gray('   3. Port 8001\'in açık olduğundan emin olun\n'));
+      if (error instanceof Error) {
+        console.log(chalk.gray(`   Hata detayı: ${error.message}`));
       }
+      this.rl.close();
     }
   }
 
@@ -231,20 +220,39 @@ export class DeepSearchManager {
     console.log(''); // Add a newline for better formatting
     console.log(chalk.cyan('💡 Sistem hazır! Araştırma yapmak için bir konu girin.'));
     
-    this.rl.question(chalk.yellow('🔍 Araştırma konusunu girin (çıkmak için "exit" yazın): '), (topic) => {
-      if (topic.toLowerCase() === 'exit') {
-        this.ws?.close();
-        this.rl.close();
+    // Synchronous input with fallback
+    let topic = '';
+    try {
+      const prompt = require('prompt-sync')({ sigint: true });
+      topic = prompt(chalk.yellow('🔍 Araştırma konusunu girin (çıkmak için "exit" yazın): '));
+      console.log(chalk.red(`🚨 TOPIC RECEIVED: "${topic}"`));
+    } catch (error) {
+      console.log(chalk.red('❌ Input sistemi hatası. readline kullanılıyor...'));
+      this.rl.question(chalk.yellow('🔍 Araştırma konusunu girin (çıkmak için "exit" yazın): '), (inputTopic) => {
+        topic = inputTopic;
+        console.log(chalk.red(`🚨 TOPIC RECEIVED (FALLBACK): "${topic}"`));
+        this.processTopicInput(topic);
         return;
-      }
+      });
+      return;
+    }
+    
+    this.processTopicInput(topic);
+  }
 
-      if (this.ws?.readyState === WebSocket.OPEN) {
+  private processTopicInput(topic: string): void {
+    if (topic.toLowerCase() === 'exit') {
+      this.ws?.close();
+      this.rl.close();
+      return;
+    }
+
+    if (this.ws?.readyState === WebSocket.OPEN) {
         // Araştırma başlangıç bildirimi
         console.log(chalk.cyan(`\n🔎 "${topic}" konusu araştırılıyor...`));
         console.log(chalk.gray('📝 Derin araştırma başlatıldı, bu işlem biraz zaman alabilir...\n'));
         
         const message = { topic, model: this.selectedModel };
-        console.log(chalk.gray(`DEBUG: Mesaj gönderiliyor: ${JSON.stringify(message)}`));
         
         try {
           this.ws.send(JSON.stringify(message));
@@ -262,9 +270,7 @@ export class DeepSearchManager {
             }
           }, 2000);
           
-          console.log(chalk.gray('DEBUG: Mesaj gönderildi, spinner başlatıldı'));
-          
-          // Add timeout for research request (30 seconds - reduced from 60)
+          // Add timeout for research request (5 minutes for deep research)
           this.researchTimeout = setTimeout(() => {
             if (this.spinner.isSpinning) {
               // Clear progress interval
@@ -273,25 +279,24 @@ export class DeepSearchManager {
                 this.progressInterval = null;
               }
               
-              this.spinner.fail(chalk.red('⏰ Araştırma isteği zaman aşımına uğradı (30 saniye)'));
+              this.spinner.fail(chalk.red('⏰ Araştırma isteği zaman aşımına uğradı (5 dakika)'));
               console.log(chalk.yellow('💡 Backend servisi yanıt vermiyor. Olası nedenler:'));
               console.log(chalk.gray('   1. API anahtarları eksik veya hatalı (.env dosyası)'));
-              console.log(chalk.gray('   2. TOGETHER_API_KEY ve TAVILY_API_KEY gerekli'));
+              console.log(chalk.gray('   2. Lokal model servisleri (Ollama/LM Studio) gerekli'));
               console.log(chalk.gray('   3. Docker servisleri düzgün çalışmıyor'));
               console.log(chalk.gray('   4. Network bağlantı problemi\n'));
               this.promptForTopic();
             }
-          }, 30000);
+          }, 300000);  // 5 dakika = 300000ms
           
         } catch (error) {
           console.log(chalk.red(`❌ Mesaj gönderme hatası: ${error}`));
           this.promptForTopic();
         }
-      } else {
-        console.log(chalk.red('WebSocket bağlantısı kapalı. Lütfen tekrar başlatın.'));
-        this.rl.close();
-      }
-    });
+    } else {
+      console.log(chalk.red('WebSocket bağlantısı kapalı. Lütfen tekrar başlatın.'));
+      this.rl.close();
+    }
   }
 
   private async discoverModels(): Promise<Array<{ name: string; provider: string }>> {
@@ -407,13 +412,156 @@ export class DeepSearchManager {
     }
   }
 
+  private async ensureDockerServices(): Promise<void> {
+    console.log(chalk.cyan('🐳 Docker servislerini kontrol ediliyor...'));
+    
+    try {
+      // Docker'ın çalışıp çalışmadığını kontrol et
+      const { stdout: dockerStatus } = await execAsync('docker info > /dev/null 2>&1 && echo "running" || echo "stopped"');
+      
+      if (dockerStatus.trim() === 'stopped') {
+        console.log(chalk.yellow('⚠️  Docker çalışmıyor. Docker başlatmaya çalışıyorum...'));
+        
+        // macOS için Docker Desktop başlat
+        try {
+          await execAsync('open -a Docker');
+          console.log(chalk.blue('📱 Docker Desktop açılıyor...'));
+          
+          // Docker başlamasını bekle
+          let attempts = 0;
+          const maxAttempts = 30;
+          
+          while (attempts < maxAttempts) {
+            try {
+              await execAsync('docker info > /dev/null 2>&1');
+              break;
+            } catch {
+              attempts++;
+              console.log(chalk.gray(`   Docker başlatılıyor... (${attempts}/${maxAttempts})`));
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
+          
+          if (attempts >= maxAttempts) {
+            console.log(chalk.red('❌ Docker başlatılamadı. Lütfen manuel olarak başlatın.'));
+            return;
+          }
+          
+          console.log(chalk.green('✅ Docker başarıyla başlatıldı!'));
+        } catch (error) {
+          console.log(chalk.red('❌ Docker başlatılırken hata oluştu. Lütfen manuel olarak başlatın.'));
+          return;
+        }
+      }
+
+      // Docker Compose servislerini kontrol et
+      console.log(chalk.cyan('🔄 Docker Compose servislerini kontrol ediliyor...'));
+      
+      // Proje ana dizinini bul
+      const projectRoot = await this.findProjectRoot();
+      
+      try {
+        const { stdout: composeStatus } = await execAsync(`cd "${projectRoot}" && docker-compose ps --services --filter "status=running"`);
+        const runningServices = composeStatus.trim().split('\n').filter(s => s.trim());
+        
+        // Deep research servisinin çalışıp çalışmadığını kontrol et
+        const isDeepResearchRunning = runningServices.includes('deep-research-service');
+        
+        if (!isDeepResearchRunning) {
+          console.log(chalk.yellow('🚀 Deep research servisi başlatılıyor...'));
+          
+          // Sadece gerekli servisleri başlat
+          const servicesToStart = ['deep-research-service', 'redis'];
+          
+          for (const service of servicesToStart) {
+            try {
+              console.log(chalk.gray(`   ${service} başlatılıyor...`));
+              await execAsync(`cd "${projectRoot}" && docker-compose up -d ${service}`);
+            } catch (error) {
+              console.log(chalk.red(`❌ ${service} başlatılırken hata: ${error}`));
+            }
+          }
+          
+          // Servislerin sağlıklı olmasını bekle
+          await this.waitForServiceHealth();
+          
+        } else {
+          console.log(chalk.green('✅ Deep research servisi zaten çalışıyor!'));
+        }
+        
+      } catch (error) {
+        console.log(chalk.red(`❌ Docker Compose kontrol hatası: ${error}`));
+        console.log(chalk.yellow('🔧 Servisleri manuel başlatmaya çalışıyorum...'));
+        
+        try {
+          await execAsync(`cd "${projectRoot}" && docker-compose up -d deep-research-service redis`);
+          await this.waitForServiceHealth();
+        } catch (startError) {
+          console.log(chalk.red(`❌ Servis başlatma hatası: ${startError}`));
+        }
+      }
+      
+    } catch (error) {
+      console.log(chalk.red(`❌ Docker kontrol hatası: ${error}`));
+      console.log(chalk.yellow('💡 Lütfen Docker kurulu ve çalışır durumda olduğundan emin olun.'));
+    }
+  }
+
+  private async waitForServiceHealth(): Promise<void> {
+    console.log(chalk.cyan('🏥 Servislerin sağlıklı olmasını bekleniyor...'));
+    
+    const maxAttempts = 15; // Daha az deneme
+    let attempts = 0;
+    
+    while (attempts < maxAttempts) {
+      try {
+        // WebSocket bağlantısı test et (health endpoint yerine)
+        const testWs = new WebSocket('ws://localhost:8001/research_ws');
+        
+        const isHealthy = await new Promise<boolean>((resolve) => {
+          const timeout = setTimeout(() => {
+            testWs.terminate();
+            resolve(false);
+          }, 3000);
+          
+          testWs.on('open', () => {
+            clearTimeout(timeout);
+            testWs.close();
+            resolve(true);
+          });
+          
+          testWs.on('error', () => {
+            clearTimeout(timeout);
+            resolve(false);
+          });
+        });
+        
+        if (isHealthy) {
+          console.log(chalk.green('✅ Deep research servisi sağlıklı!'));
+          return;
+        }
+      } catch (error) {
+        // Servis henüz hazır değil
+      }
+      
+      attempts++;
+      console.log(chalk.gray(`   Sağlık kontrolü... (${attempts}/${maxAttempts})`));
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    
+    console.log(chalk.yellow('⚠️  Servis sağlık kontrolü tamamlanamadı, ancak devam ediliyor...'));
+  }
+
   private async selectModel(): Promise<void> {
     const models = await this.discoverModels();
 
     if (models.length === 0) {
-      console.log(chalk.yellow('⚠️  Hiç lokal model bulunamadı. Varsayılan TogetherAI modelleri kullanılacak.'));
-      this.selectedModel = null;
-      return;
+      console.log(chalk.yellow('⚠️  Hiç lokal model bulunamadı. Lütfen Ollama veya LM Studio kurarak model yükleyin.'));
+      console.log(chalk.cyan('\n💡 Kurulum önerileri:'));
+      console.log(chalk.gray('   Ollama: brew install ollama && ollama pull llama3.2'));
+      console.log(chalk.gray('   LM Studio: https://lmstudio.ai - Model indirip local server başlatın\n'));
+      this.rl.close();
+      throw new Error('No models available');
     }
 
     console.log(chalk.cyan('\n🤖 Mevcut AI Modelleri:'));
@@ -423,18 +571,54 @@ export class DeepSearchManager {
     });
 
     const answer: string = await new Promise((resolve) => {
-      this.rl.question(chalk.cyan('\nKullanmak istediğiniz modelin numarasını seçin (enter = varsayılan): '), resolve);
+      this.rl.question(chalk.cyan('\nKullanmak istediğiniz modelin numarasını seçin (enter = 1. model): '), resolve);
     });
 
     const idx = parseInt(answer) - 1;
     if (!answer.trim()) {
-      this.selectedModel = null; // varsayılan
+      this.selectedModel = models[0].name; // İlk modeli varsayılan yap
+      console.log(chalk.green(`✓ ${this.selectedModel} modeli (varsayılan) seçildi!`));
     } else if (idx >= 0 && idx < models.length) {
       this.selectedModel = models[idx].name;
       console.log(chalk.green(`✓ ${this.selectedModel} modeli seçildi!`));
     } else {
-      console.log(chalk.yellow('Geçersiz seçim, varsayılan modeller kullanılacak.'));
-      this.selectedModel = null;
+      console.log(chalk.yellow('Geçersiz seçim, ilk model kullanılacak.'));
+      this.selectedModel = models[0].name;
     }
+  }
+
+  private async findProjectRoot(): Promise<string> {
+    // CLI'nin kurulu olduğu dizini bul
+    let currentDir = process.cwd();
+    
+    // Önce mevcut dizinde docker-compose.yml var mı kontrol et
+    if (fs.existsSync(path.join(currentDir, 'docker-compose.yml'))) {
+      return currentDir;
+    }
+    
+    // Üst dizinlerde ara
+    while (currentDir !== path.dirname(currentDir)) {
+      if (fs.existsSync(path.join(currentDir, 'docker-compose.yml'))) {
+        return currentDir;
+      }
+      currentDir = path.dirname(currentDir);
+    }
+    
+    // Bulunamadıysa, muhtemelen LocoDex dizini
+    const possiblePaths = [
+      '/Users/apple/Desktop/LocoDex',
+      path.join(process.env.HOME || '', 'Desktop', 'LocoDex'),
+      path.join(process.env.HOME || '', 'LocoDex'),
+      path.join(process.cwd(), '..', '..'), // packages/cli'dan üst dizine
+    ];
+    
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(path.join(possiblePath, 'docker-compose.yml'))) {
+        return possiblePath;
+      }
+    }
+    
+    // Varsayılan olarak mevcut dizini döndür
+    return process.cwd();
   }
 }
