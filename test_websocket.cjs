@@ -1,44 +1,44 @@
 const WebSocket = require('ws');
 
-console.log('🚀 WebSocket test başlatılıyor...');
+async function testWebSocket() {
+    console.log('WebSocket test başlıyor...');
+    
+    const ws = new WebSocket('ws://localhost:8001/research_ws');
+    
+    ws.on('open', () => {
+        console.log('✅ WebSocket bağlantısı açıldı');
+        
+        setTimeout(() => {
+            const message = { topic: 'test araştırması', model: 'gemma-3-27b-it' };
+            console.log('📤 Mesaj gönderiliyor:', JSON.stringify(message));
+            ws.send(JSON.stringify(message));
+        }, 1000);
+    });
+    
+    ws.on('message', (data) => {
+        const message = JSON.parse(data.toString());
+        console.log('📥 Mesaj alındı:', message.type, '-', message.message);
+        
+        if (message.type === 'result') {
+            console.log('✅ Research tamamlandı!');
+            ws.close();
+        }
+        
+        if (message.type === 'error') {
+            console.log('❌ Hata:', message.data);
+            ws.close();
+        }
+    });
+    
+    ws.on('close', () => {
+        console.log('🔚 WebSocket bağlantısı kapandı');
+        process.exit(0);
+    });
+    
+    ws.on('error', (error) => {
+        console.log('❌ WebSocket hatası:', error.message);
+        process.exit(1);
+    });
+}
 
-const ws = new WebSocket('ws://localhost:8001/research_ws');
-
-ws.on('open', function open() {
-  console.log('✅ Bağlantı başarılı!');
-  
-  // Gerçek model ismi ile test
-  const message = { 
-    topic: "M4 Max işlemci hakkında bilgi ver", 
-    model: "gemma-3-27b-it" 
-  };
-  
-  console.log('📤 Mesaj gönderiliyor:', JSON.stringify(message));
-  ws.send(JSON.stringify(message));
-});
-
-ws.on('message', function message(data) {
-  const parsed = JSON.parse(data.toString());
-  console.log('📥 Mesaj alındı:', parsed);
-  
-  if (parsed.type === 'result') {
-    console.log('\n🎉 SONUÇ ALINDI:');
-    console.log(parsed.data);
-    ws.close();
-  }
-});
-
-ws.on('error', function error(err) {
-  console.error('❌ WebSocket hatası:', err);
-});
-
-ws.on('close', function close() {
-  console.log('🔌 Bağlantı kapatıldı');
-  process.exit(0);
-});
-
-// 60 saniye timeout
-setTimeout(() => {
-  console.log('⏰ 60 saniye timeout - bağlantı kapatılıyor');
-  ws.close();
-}, 60000); 
+testWebSocket();

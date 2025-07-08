@@ -88,6 +88,35 @@ export class ModelProviderAPI {
       models: [],
       capabilities: ['chat', 'completion', 'embedding', 'vision']
     })
+
+    // vLLM Provider
+    this.providers.set('vllm', {
+      name: 'vLLM',
+      baseUrl: 'http://localhost:8000',
+      endpoints: {
+        models: '/models',
+        chat: '/v1/chat/completions',
+        completions: '/v1/completions',
+        health: '/health',
+        stats: '/stats',
+        load: '/models/load',
+        unload: '/models/unload'
+      },
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      status: 'unknown',
+      lastCheck: null,
+      models: [],
+      capabilities: ['chat', 'completion', 'high-performance', 'gpu-acceleration'],
+      features: {
+        modelLoading: true,
+        gpuAcceleration: true,
+        tensorParallel: true,
+        quantization: true,
+        streaming: true
+      }
+    })
   }
 
   // Enhanced HTTP client with retry logic
@@ -287,6 +316,123 @@ export class ModelProviderAPI {
     }
   }
 
+  // Get models from vLLM
+  async getVLLMModels() {
+    const provider = this.providers.get('vllm')
+    if (!provider || provider.status !== 'available') return []
+
+    try {
+      const url = `${provider.baseUrl}${provider.endpoints.models}`
+      const data = await this.makeRequest(url, {
+        method: 'GET',
+        headers: provider.headers
+      })
+
+      const models = data.data?.map(model => ({
+        id: model.id,
+        name: model.id,
+        provider: 'vllm',
+        created: model.created,
+        owned_by: model.owned_by || 'vllm',
+        object: model.object,
+        status: model.status || 'loaded',
+        capabilities: {
+          ...this.detectCapabilities(model.id),
+          high_performance: true,
+          gpu_acceleration: true,
+          tensor_parallel: true,
+          quantization: true,
+          streaming: true
+        },
+        metadata: {
+          config: model.config,
+          vllm_specific: true,
+          gpu_accelerated: true
+        }
+      })) || []
+
+      provider.models = models
+      this.emit('modelsUpdated', { provider: 'vllm', models })
+      return models
+    } catch (error) {
+      this.emit('error', { provider: 'vllm', operation: 'getModels', error: error.message })
+      return []
+    }
+  }
+
+  // Load model in vLLM
+  async loadVLLMModel(modelConfig) {
+    const provider = this.providers.get('vllm')
+    if (!provider || provider.status !== 'available') {
+      throw new Error('vLLM service is not available')
+    }
+
+    try {
+      const url = `${provider.baseUrl}${provider.endpoints.load}`
+      const response = await this.makeRequest(url, {
+        method: 'POST',
+        headers: provider.headers,
+        body: JSON.stringify({ config: modelConfig })
+      })
+
+      this.emit('modelLoaded', { provider: 'vllm', model: modelConfig.model_path, response })
+      
+      // Refresh models list
+      setTimeout(() => this.getVLLMModels(), 2000)
+      
+      return response
+    } catch (error) {
+      this.emit('error', { provider: 'vllm', operation: 'loadModel', error: error.message })
+      throw error
+    }
+  }
+
+  // Unload current model from vLLM
+  async unloadVLLMModel() {
+    const provider = this.providers.get('vllm')
+    if (!provider || provider.status !== 'available') {
+      throw new Error('vLLM service is not available')
+    }
+
+    try {
+      const url = `${provider.baseUrl}${provider.endpoints.unload}`
+      const response = await this.makeRequest(url, {
+        method: 'POST',
+        headers: provider.headers
+      })
+
+      this.emit('modelUnloaded', { provider: 'vllm', response })
+      
+      // Refresh models list
+      setTimeout(() => this.getVLLMModels(), 1000)
+      
+      return response
+    } catch (error) {
+      this.emit('error', { provider: 'vllm', operation: 'unloadModel', error: error.message })
+      throw error
+    }
+  }
+
+  // Get vLLM stats
+  async getVLLMStats() {
+    const provider = this.providers.get('vllm')
+    if (!provider || provider.status !== 'available') return null
+
+    try {
+      const url = `${provider.baseUrl}${provider.endpoints.stats}`
+      const stats = await this.makeRequest(url, {
+        method: 'GET',
+        headers: provider.headers
+      })
+
+      this.emit('statsUpdated', { provider: 'vllm', stats })
+      return stats
+    } catch (error) {
+      this.emit('error', { provider: 'vllm', operation: 'getStats', error: error.message })
+      return null
+    }
+  }
+
   // Detect model capabilities based on name
   detectCapabilities(modelName) {
     const name = modelName.toLowerCase()
@@ -341,6 +487,9 @@ export class ModelProviderAPI {
               break
             case 'localai':
               models = await this.getLocalAIModels()
+              break
+            case 'vllm':
+              models = await this.getVLLMModels()
               break
           }
           
@@ -425,6 +574,7 @@ export class ModelProviderAPI {
       
       case 'lmstudio':
       case 'localai':
+      case 'vllm':
         return {
           ...basePayload,
           top_p: options.topP || 0.9,
@@ -452,7 +602,8 @@ export class ModelProviderAPI {
         }
       
       case 'lmstudio':
-      case 'localai': {
+      case 'localai':
+      case 'vllm': {
         const choice = response.choices?.[0]
         return {
           content: choice?.message?.content || '',

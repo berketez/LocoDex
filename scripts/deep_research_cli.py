@@ -106,15 +106,30 @@ def check_docker_services():
         os.chdir(original_dir)
 
 def get_available_models():
-    """LM Studio'dan mevcut modelleri al"""
+    """Mevcut modelleri hem Ollama hem de LM Studio'dan al"""
+    models = []
+    
+    # Ollama'dan modelleri al
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=5)
+        if response.status_code == 200:
+            ollama_models = response.json().get('models', [])
+            for model in ollama_models:
+                models.append({"id": model['name'], "source": "Ollama"})
+    except:
+        pass
+
+    # LM Studio'dan modelleri al
     try:
         response = requests.get("http://localhost:1234/v1/models", timeout=5)
         if response.status_code == 200:
-            models = response.json()
-            return [model['id'] for model in models.get('data', [])]
+            lm_studio_models = response.json().get('data', [])
+            for model in lm_studio_models:
+                models.append({"id": model['id'], "source": "LM Studio"})
     except:
         pass
-    return []
+        
+    return models
 
 def select_model():
     """Kullanıcının model seçmesini sağla"""
@@ -124,16 +139,16 @@ def select_model():
     models = get_available_models()
     
     if not models:
-        console.print("⚠ [yellow]LM Studio'da aktif model bulunamadı. Varsayılan model kullanılacak.[/yellow]")
+        console.print("⚠ [yellow]Aktif model bulunamadı. Lütfen Ollama veya LM Studio'nun çalıştığından emin olun.[/yellow]")
         return None
     
     console.print("\n🤖 [bold cyan]Mevcut AI Modelleri:[/bold cyan]")
     for i, model in enumerate(models, 1):
-        console.print(f"  {i}. 🎬 {model}")
+        console.print(f"  {i}. {model['id']} ({model['source']})")
     
     try:
         choice_str = Prompt.ask(
-            f"Kullanmak istediğiniz modelin numarasını seçin (enter = varsayılan)",
+            f"Kullanmak istediğiniz modelin numarasını seçin (enter = 1. model)",
             default="1"
         )
         
@@ -141,7 +156,7 @@ def select_model():
             choice = int(choice_str)
             if 1 <= choice <= len(models):
                 selected_model = models[choice - 1]
-                console.print(f"✓ [green]{selected_model} modeli seçildi![/green]")
+                console.print(f"✓ [green]{selected_model['id']} modeli seçildi![/green]")
                 return selected_model
             else:
                 console.print("⚠ Geçersiz seçim, varsayılan model kullanılacak.")
@@ -153,6 +168,7 @@ def select_model():
     except (KeyboardInterrupt, EOFError):
         console.print("\n⚠ Model seçimi iptal edildi, varsayılan model kullanılacak.")
         return models[0] if models else None
+
 
 async def main():
     console = Console()
@@ -166,15 +182,18 @@ async def main():
     # Model seç
     selected_model = select_model()
     
-    # Model seçimi sırasında model hazır durumunu kontrol et
-    if selected_model:
-        with console.status(f"[bold blue]{selected_model} modeli kontrol ediliyor...[/bold blue]"):
-            time.sleep(2)
-        console.print(f"✔ ✓ {selected_model} modeli hazır ve kullanıma uygun!")
+    if not selected_model:
+        console.print("\n[bold red]❌ Model seçilmeden devam edilemez. Çıkılıyor.[/bold red]")
+        return
 
-    console.print(Panel("[bold cyan]🚀 LocoDex Deep Research CLI[/bold cyan]", 
-                        title="Hoş Geldiniz!", 
-                        subtitle="Çıkmak için 'quit' veya 'exit' yazın."))
+    # Model seçimi sırasında model hazır durumunu kontrol et
+    with console.status(f"[bold blue]{selected_model['id']} modeli kontrol ediliyor..."):
+        time.sleep(2)
+    console.print(f"✔ ✓ {selected_model['id']} modeli hazır ve kullanıma uygun!")
+
+    console.print("🌟 [bold cyan]Deep Search Modülü Aktif![/bold cyan]")
+    console.print("   Yapay zeka destekli derinlemesine araştırma yapmaya hazırlanıyor...")
+    console.print("   💡 İpucu: Çıkmak için \"exit\" yazın\n")
 
     uri = "ws://localhost:8001/research_ws"
 
@@ -183,13 +202,13 @@ async def main():
     for attempt in range(max_retries):
         try:
             async with websockets.connect(uri) as websocket:
-                console.print("✔ ✅ Derin araştırma servisine bağlandı!")
-                console.print("💡 Araştırma yapmak için bir konu girin, çıkmak için 'quit' yazın.")
+                console.print("✔ Derin araştırma servisine başarıyla bağlanıldı!")
+                console.print("✓ Servis hazır ve araştırma isteklerini bekliyor")
 
                 while True:
                     try:
                         topic = await asyncio.wait_for(
-                            async_input("\n[bold]🔍 Araştırmak istediğiniz konuyu girin[/bold]"),
+                            async_input("🔬 Konu"),
                             timeout=300  # 5 dakika timeout
                         )
                         
@@ -197,23 +216,32 @@ async def main():
                             console.print("👋 Çıkış yapılıyor...")
                             break
 
-                        await websocket.send(json.dumps({"topic": topic}))
+                        await websocket.send(json.dumps({"topic": topic, "model": selected_model}))
 
-                        spinner = Spinner("dots", text="Araştırma yapılıyor...")
-                        with console.status(spinner) as status:
+                        console.print(f"\n🚀 Mesaj gönderiliyor: {json.dumps({'topic': topic, 'model': selected_model})}")
+                        
+                        # İlerleme durumunu basit tek satırda göster
+                        current_status = "Başlıyor..."
+                        
+                        with console.status(f"[bold blue]🔬 {current_status}[/bold blue]") as status:
                             while True:
                                 try:
                                     message_str = await websocket.recv()
                                     message = json.loads(message_str)
 
                                     if message["type"] == "progress":
-                                        status.update(f"[bold blue]📊 {message['message']}[/bold blue]")
+                                        # Sadece mesajı güncelle, tek satırda göster
+                                        current_status = message['message']
+                                        status.update(f"[bold blue]🔬 {current_status}[/bold blue]")
                                     elif message["type"] == "result":
+                                        status.stop()
+                                        console.print(f"\n📊 [bold green]Araştırma Tamamlandı[/bold green]")
                                         console.print(Panel(Markdown(message["data"]), 
                                                             title="[bold green]🎯 Araştırma Sonucu[/bold green]", 
                                                             border_style="green"))
                                         break # Exit the listening loop to ask for new topic
                                     elif message["type"] == "error":
+                                        status.stop()
                                         console.print(f"[bold red]❌ Hata:[/bold red] {message['data']}")
                                         break
 

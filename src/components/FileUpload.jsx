@@ -42,7 +42,7 @@ const FileUpload = ({ onFilesUpload, supportedTypes = ['pdf', 'docx', 'xlsx', 'p
     handleFiles(files)
   }, [handleFiles])
 
-  const handleFiles = async (files) => {
+  const handleFiles = useCallback(async (files) => {
     setProcessing(true)
     const validFiles = files.filter(file => {
       const extension = file.name.split('.').pop().toLowerCase()
@@ -87,9 +87,9 @@ const FileUpload = ({ onFilesUpload, supportedTypes = ['pdf', 'docx', 'xlsx', 'p
     if (onFilesUpload) {
       onFilesUpload(newFiles)
     }
-  }
+  }, [supportedTypes, onFilesUpload, processFile])
 
-  const processFile = async (fileInfo) => {
+  const processFile = useCallback(async (fileInfo) => {
     try {
       // Update progress during processing
       setUploadProgress(prev => ({ ...prev, [fileInfo.id]: 25 }))
@@ -125,7 +125,7 @@ const FileUpload = ({ onFilesUpload, supportedTypes = ['pdf', 'docx', 'xlsx', 'p
         } : f
       ))
     }
-  }
+  }, [documentProcessor])
 
 
   const removeFile = (fileId) => {

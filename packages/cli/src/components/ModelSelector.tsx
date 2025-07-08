@@ -136,7 +136,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelect }) => {
       <Box marginTop={1}>
         <SelectInput
           items={models}
-          onSelect={({ value }) => onSelect(value)}
+          onSelect={({ value }: { value: any }) => onSelect(value)}
         />
       </Box>
       <Box marginTop={1}>

@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Badge } from '@/components/ui/badge.jsx';
 import { Progress } from '@/components/ui/progress.jsx';
 import { ScrollArea } from '@/components/ui/scroll-area.jsx';
-import { Separator } from '@/components/ui/separator.jsx';
 
 import {
   Search,
@@ -115,6 +114,7 @@ const DeepResearch = () => {
         wsRef.current.close();
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Scroll to bottom when new progress step is added
@@ -382,38 +382,20 @@ const DeepResearch = () => {
 
             {loading && (
               <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-purple-200 dark:border-purple-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Eye className="w-5 h-5 text-purple-500" />
-                    <span>Araştırma Süreci Canlı İzleme</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-64" ref={scrollRef}>
-                    <div className="space-y-3">
-                      <AnimatePresence>
-                        {progressSteps.map((step, index) => (
-                          <motion.div
-                            key={step.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            className="flex items-start space-x-3 p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-700"
-                          >
-                            <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-white text-xs font-bold">{index + 1}</span>
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm text-gray-700 dark:text-gray-300">{step.message}</p>
-                              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                                {step.timestamp.toLocaleTimeString('tr-TR')} • %{(step.step * 100).toFixed(0)} tamamlandı
-                              </p>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <RefreshCw className="w-4 h-4 text-white animate-spin" />
                     </div>
-                  </ScrollArea>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {currentStep}
+                      </p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                        {progress.toFixed(0)}% tamamlandı
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}

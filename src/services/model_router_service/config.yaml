@@ -1,0 +1,9 @@
+
+model_list:
+  - model_name: ollama/llama2 # LiteLLM'in Ollama modellerini tanıması için bu öneki kullanıyoruz
+    litellm_params:
+      model: ollama/llama2
+      api_base: http://localhost:11434
+
+router_settings:
+  model_dir: /Users/apple/Desktop/LocoDex/models/merged_models # Birleştirilmiş modellerin bulunduğu dizin

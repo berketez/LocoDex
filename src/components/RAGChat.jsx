@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Badge } from '@/components/ui/badge.jsx'
 import { ScrollArea } from '@/components/ui/scroll-area.jsx'
 import { Separator } from '@/components/ui/separator.jsx'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
 import { 
   Send, 
   Bot, 
@@ -14,16 +15,19 @@ import {
   Search,
   Lightbulb,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Building2,
+  Sparkles
 } from 'lucide-react'
-import DocumentProcessor from '@/utils/documentProcessor.js'
+import EnterpriseRAG from './EnterpriseRAG.jsx'
 
 const RAGChat = ({ uploadedFiles = [] }) => {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [ragContext, setRagContext] = useState([])
-  const [documentProcessor] = useState(() => new DocumentProcessor())
+  const [useEnterpriseRAG, setUseEnterpriseRAG] = useState(false)
+  // const [documentProcessor] = useState(() => new DocumentProcessor())
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -64,22 +68,33 @@ const RAGChat = ({ uploadedFiles = [] }) => {
     setIsLoading(true)
 
     try {
-      // Simulate RAG processing
-      const relevantContext = findRelevantContext(input)
-      
-      // Simulate AI response with RAG context
-      const aiResponse = await generateRAGResponse(input, relevantContext)
-      
+      // Send query to the LiteLLM router
+      const response = await fetch('http://localhost:8000/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'ollama/llama2', // Or another model managed by LiteLLM
+          messages: [{ role: 'user', content: input }],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response from the model router.');
+      }
+
+      const data = await response.json();
+
       const assistantMessage = {
         id: Date.now() + 1,
         type: 'assistant',
-        content: aiResponse.content,
-        ragContext: relevantContext,
-        sources: aiResponse.sources,
-        timestamp: new Date()
-      }
+        content: data.choices[0].message.content,
+        sources: [], // The router doesn't directly provide sources, the training_service does
+        timestamp: new Date(),
+      };
 
-      setMessages(prev => [...prev, assistantMessage])
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('RAG Chat Error:', error)
       const errorMessage = {
@@ -95,70 +110,7 @@ const RAGChat = ({ uploadedFiles = [] }) => {
     }
   }
 
-  const findRelevantContext = (query) => {
-    if (ragContext.length === 0) return []
-    
-    // Use DocumentProcessor for better chunk searching
-    const allChunks = []
-    ragContext.forEach(doc => {
-      if (doc.chunks && doc.chunks.length > 0) {
-        doc.chunks.forEach(chunk => {
-          allChunks.push({
-            ...chunk,
-            source: doc.source,
-            type: doc.type
-          })
-        })
-      } else {
-        // Fallback for documents without chunks
-        allChunks.push({
-          text: doc.content,
-          source: doc.source,
-          type: doc.type,
-          chunkIndex: 0
-        })
-      }
-    })
-    
-    // Use DocumentProcessor's search functionality
-    const relevantChunks = documentProcessor.searchChunks(allChunks, query, 3)
-    
-    return relevantChunks.map(chunk => ({
-      source: chunk.source,
-      content: chunk.text,
-      type: chunk.type,
-      relevanceScore: chunk.score,
-      chunkIndex: chunk.chunkIndex
-    }))
-  }
-
-  const generateRAGResponse = async (query, context) => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
-    
-    if (context.length === 0) {
-      return {
-        content: 'Üzgünüm, yüklenen belgelerde bu konuyla ilgili bilgi bulamadım. Lütfen daha spesifik bir soru sorun veya ilgili belgeleri yüklediğinizden emin olun.',
-        sources: []
-      }
-    }
-
-    // Generate response based on context
-    const sources = context.map(doc => doc.source)
-    const response = `Yüklenen belgelerinize göre bu konuyla ilgili bilgileri buldum:
-
-${context.map((doc, index) => `
-${index + 1}. **${doc.source}** dosyasından:
-   ${doc.content.slice(0, 200)}${doc.content.length > 200 ? '...' : ''}
-`).join('\n')}
-
-Bu bilgilere dayanarak size daha detaylı yanıt verebilirim. Başka sorularınız varsa lütfen sorun!`
-
-    return {
-      content: response,
-      sources: sources
-    }
-  }
+  
 
   const clearChat = () => {
     setMessages([])
@@ -184,18 +136,52 @@ Bu bilgilere dayanarak size daha detaylı yanıt verebilirim. Başka soruların�
     }
   }
 
+  // Enterprise RAG seçilmişse, Enterprise bileşenini göster
+  if (useEnterpriseRAG) {
+    return <EnterpriseRAG uploadedFiles={uploadedFiles} />
+  }
+
   if (ragContext.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-center p-8">
+        <div className="text-center p-8 max-w-md">
           <Database className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-semibold mb-2">Belge Gerekli</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            RAG tabanlı sohbet için önce belgelerinizi yüklemelisiniz.
+          <h3 className="text-lg font-semibold mb-2">RAG Sistemi Seçimi</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Hangi RAG sistemini kullanmak istiyorsunuz?
           </p>
-          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-            <FileText className="w-4 h-4" />
-            <span>RAG sekmesine geçerek belge yükleyin</span>
+          
+          <div className="space-y-4">
+            <Button 
+              onClick={() => setUseEnterpriseRAG(true)}
+              className="w-full"
+              variant="default"
+            >
+              <Building2 className="w-4 h-4 mr-2" />
+              Kurumsal RAG Sistemi
+            </Button>
+            
+            <Button 
+              onClick={() => setUseEnterpriseRAG(false)}
+              className="w-full"
+              variant="outline"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Basit RAG Sistemi
+            </Button>
+          </div>
+          
+          <div className="mt-6 text-sm text-gray-500 space-y-2">
+            <div className="flex items-center justify-center space-x-2">
+              <FileText className="w-4 h-4" />
+              <span>Önce RAG sekmesine geçerek belge yükleyin</span>
+            </div>
+            <div className="text-xs">
+              <strong>Kurumsal:</strong> Otomatik kategorizasyon, semantik arama, departman organizasyonu
+            </div>
+            <div className="text-xs">
+              <strong>Basit:</strong> Temel belge analizi ve sorgu
+            </div>
           </div>
         </div>
       </div>
@@ -208,15 +194,23 @@ Bu bilgilere dayanarak size daha detaylı yanıt verebilirim. Başka soruların�
       <div className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-700 p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Database className="w-4 h-4 text-blue-600" />
+            <Sparkles className="w-4 h-4 text-blue-600" />
             <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-              RAG Aktif
+              Basit RAG Aktif
             </span>
             <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">
               {ragContext.length} belge yüklendi
             </Badge>
           </div>
           <div className="flex items-center space-x-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setUseEnterpriseRAG(true)}
+              title="Kurumsal RAG'e geç"
+            >
+              <Building2 className="w-4 h-4" />
+            </Button>
             <Button variant="ghost" size="sm" onClick={clearChat}>
               <RefreshCw className="w-4 h-4" />
             </Button>

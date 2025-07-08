@@ -7,13 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
-import { Separator } from './ui/separator';
 import { 
   Upload, 
   Play, 
-  Pause, 
   Square, 
   Download, 
   FileText, 
@@ -78,72 +75,115 @@ const AIModelTraining = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleFileUpload = (event) => {
+  const [, setTrainingDatasets] = useState([]);
+
+  const handleDatasetUpload = async (event) => {
     const files = Array.from(event.target.files);
-    const newData = files.map(file => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      status: 'uploaded',
-      file: file
-    }));
-    setTrainingData(prev => [...prev, ...newData]);
+    setTrainingStatus('processing');
+    
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('http://localhost:8001/upload_dataset/', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Dataset upload failed for ${file.name}`);
+        }
+
+        const result = await response.json();
+        setTrainingDatasets(prev => [...prev, result]);
+        setTrainingData(prev => [...prev, {
+          id: Date.now() + Math.random(),
+          name: file.name,
+          size: file.size,
+          status: 'uploaded'
+        }]);
+
+      } catch (error) {
+        console.error('Error uploading dataset:', error);
+        setTrainingStatus('error');
+        return;
+      }
+    }
+
+    setTrainingStatus('processed');
   };
 
   const processTrainingData = async () => {
     setTrainingStatus('processing');
-    setTrainingProgress(0);
-    
-    for (let i = 0; i < trainingData.length; i++) {
-      setTrainingProgress((i + 1) / trainingData.length * 100);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setTrainingData(prev => prev.map(item => 
-        item.id === trainingData[i].id 
-          ? { ...item, status: 'processed' }
-          : item
-      ));
+    // Add your data processing logic here
+    setTimeout(() => {
+      setTrainingStatus('processed');
+    }, 2000);
+  };
+
+  
+
+  const handleMergeModel = async () => {
+    const requestBody = {
+      base_model: selectedModel,
+      lora_adapter_path: `models/finetuned-${selectedModel}`,
+      output_path: `models/merged_models/merged-${selectedModel}`,
+    };
+
+    try {
+      const response = await fetch('http://localhost:8001/merge_model/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start model merging.');
+      }
+
+      const result = await response.json();
+      console.log('Model merging started:', result);
+
+    } catch (error) {
+      console.error('Error starting model merging:', error);
     }
-    
-    setTrainingStatus('processed');
   };
 
   const startTraining = async () => {
     setTrainingStatus('training');
-    setTrainingProgress(0);
     setTrainingLogs([]);
-    
-    const totalSteps = fineTuningSettings.epochs * Math.ceil(trainingData.length / fineTuningSettings.batchSize);
-    
-    for (let step = 0; step < totalSteps; step++) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const progress = (step + 1) / totalSteps * 100;
-      setTrainingProgress(progress);
-      
-      const loss = Math.random() * 2 + 0.1;
-      const learningRate = fineTuningSettings.learningRate * (1 - step / totalSteps);
-      
-      if (step % 10 === 0) {
-        setTrainingLogs(prev => [...prev, {
-          step: step + 1,
-          loss: loss.toFixed(4),
-          learningRate: learningRate.toExponential(2),
-          timestamp: new Date().toISOString()
-        }]);
+
+    const requestBody = {
+      base_model: selectedModel,
+      dataset_path: "path/to/your/dataset.jsonl", // Bu dinamik olarak ayarlanmalı
+      output_path: `models/finetuned-${selectedModel}`,
+      config: fineTuningSettings,
+    };
+
+    try {
+      const response = await fetch('http://localhost:8001/finetune/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start fine-tuning.');
       }
+
+      const result = await response.json();
+      console.log('Fine-tuning started:', result);
+      // Burada eğitim ilerlemesini izlemek için bir WebSocket veya yoklama mekanizması uygulayabilirsiniz.
+
+    } catch (error) {
+      console.error('Error starting fine-tuning:', error);
+      setTrainingStatus('error');
     }
-    
-    setTrainingStatus('completed');
-    setEvaluationMetrics({
-      accuracy: 0.85 + Math.random() * 0.1,
-      precision: 0.82 + Math.random() * 0.1,
-      recall: 0.88 + Math.random() * 0.1,
-      f1Score: 0.85 + Math.random() * 0.1,
-      perplexity: 15 + Math.random() * 10,
-      bleuScore: 0.7 + Math.random() * 0.2
-    });
   };
 
   const stopTraining = () => {
@@ -297,7 +337,7 @@ const AIModelTraining = () => {
                   type="file"
                   multiple
                   accept=".txt,.json,.csv,.jsonl"
-                  onChange={handleFileUpload}
+                  onChange={handleDatasetUpload}
                   className="w-full"
                 />
               </div>
@@ -504,14 +544,23 @@ const AIModelTraining = () => {
                     <SelectValue placeholder="Select a base model" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="llama2-7b">Llama 2 7B</SelectItem>
-                    <SelectItem value="llama2-13b">Llama 2 13B</SelectItem>
-                    <SelectItem value="mistral-7b">Mistral 7B</SelectItem>
-                    <SelectItem value="codellama-7b">CodeLlama 7B</SelectItem>
-                    <SelectItem value="phi-2">Phi-2</SelectItem>
+                    <SelectItem value="codellama/CodeLlama-7b-hf">CodeLlama-7b</SelectItem>
+                    <SelectItem value="mistralai/Mistral-7B-Instruct-v0.2">Mistral-7B-Instruct</SelectItem>
+                    <SelectItem value="meta-llama/Llama-2-70b-chat-hf">Llama-2-70b-chat</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="flex items-center space-x-2 mt-4">
+                <input type="checkbox" id="qlora-checkbox" />
+                <Label htmlFor="qlora-checkbox">Enable QLoRA for Efficient Training</Label>
+              </div>
+
+              {trainingStatus === 'completed' && (
+                <div className="flex space-x-2 mt-4">
+                  <Button onClick={handleMergeModel}>Merge Model</Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

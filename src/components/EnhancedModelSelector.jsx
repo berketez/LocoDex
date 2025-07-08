@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, memo } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
@@ -8,6 +8,9 @@ import { ScrollArea } from '@/components/ui/scroll-area.jsx'
 import { Separator } from '@/components/ui/separator.jsx'
 import { Input } from '@/components/ui/input.jsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
+import StatusIndicator from '@/components/ui/status-indicator.jsx'
+import HelpMessage from '@/components/ui/help-message.jsx'
+import { translateStatus } from '@/utils/statusHelpers.js'
 import { 
   Dialog, 
   DialogContent, 
@@ -147,7 +150,7 @@ const EnhancedModelSelector = ({ onModelSelect, onEnvironmentChange, className =
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [loadModels])
 
   // Initialize API service and load data
   useEffect(() => {
@@ -382,25 +385,19 @@ const EnhancedModelSelector = ({ onModelSelect, onEnvironmentChange, className =
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-4 bg-red-50 border border-red-200 rounded-lg"
           >
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-red-800 font-medium">{error.message}</h4>
-                {error.details && (
-                  <p className="text-red-600 text-sm mt-1">{error.details}</p>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setError(null)}
-                className="text-red-600 hover:text-red-700"
-              >
-                ✕
-              </Button>
-            </div>
+            <HelpMessage
+              errorType={error.type || 'connection_failed'}
+              onRetry={() => {
+                setError(null)
+                if (error.type === 'initialization_failed') {
+                  initializeService()
+                } else if (error.type === 'discovery_failed') {
+                  loadModels()
+                }
+              }}
+              onDismiss={() => setError(null)}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -691,16 +688,38 @@ const ModelsList = ({
             </AnimatePresence>
             
             {models.length === 0 && !isLoading && (
-              <div className="text-center py-8">
+              <div className="p-4">
+                <HelpMessage 
+                  errorType="no_models_available"
+                  variant="card"
+                  onRetry={() => loadModels()}
+                />
+              </div>
+            )}
+            
+            {models.length > 0 && filteredModels.length === 0 && !isLoading && (
+              <div className="p-4 text-center">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Search className="w-8 h-8 text-gray-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Model Bulunamadı
+                  Filtre kriterlerine uygun model bulunamadı
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Arama kriterlerinize uygun model bulunamadı.
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  Arama veya filtre ayarlarınızı değiştirmeyi deneyin.
                 </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setSearchTerm('')
+                    setSelectedProvider('all')
+                    setSelectedCapability('all')
+                    setShowOnlyRecommended(false)
+                    setShowOnlyAvailable(false)
+                  }}
+                >
+                  Filtreleri Temizle
+                </Button>
               </div>
             )}
           </div>
@@ -842,9 +861,11 @@ const SystemStatusPanel = ({ systemStatus }) => {
                   status === 'partial' ? 'bg-yellow-500' : 'bg-red-500'
                 }`} />
                 <span className="capitalize font-medium">{key}</span>
-                <Badge variant={status === 'connected' ? 'default' : 'secondary'}>
-                  {status}
-                </Badge>
+                <StatusIndicator 
+                  status={status} 
+                  size="sm"
+                  pulse={status === 'connecting'}
+                />
               </div>
             ))}
           </div>
@@ -873,9 +894,11 @@ const SystemStatusPanel = ({ systemStatus }) => {
                   <Badge variant="outline">
                     {provider.modelCount || 0} model
                   </Badge>
-                  <Badge variant={provider.status === 'available' ? 'default' : 'secondary'}>
-                    {provider.status}
-                  </Badge>
+                  <StatusIndicator 
+                    status={provider.status} 
+                    size="sm"
+                    pulse={provider.status === 'checking'}
+                  />
                 </div>
               </div>
             ))}
@@ -909,9 +932,11 @@ const SystemStatusPanel = ({ systemStatus }) => {
                         :{service.port}
                       </Badge>
                     )}
-                    <Badge variant={service.status === 'running' ? 'default' : 'secondary'}>
-                      {service.status}
-                    </Badge>
+                    <StatusIndicator 
+                      status={service.status} 
+                      size="sm"
+                      pulse={service.status === 'starting' || service.status === 'stopping'}
+                    />
                   </div>
                 </div>
               ))}

@@ -8,7 +8,7 @@ import json
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from together_open_deep_research import DeepResearcher
+from real_deep_research import RealDeepResearcher
 import asyncio
 import logging
 
@@ -53,10 +53,23 @@ class LocalDeepResearcher:
                 "max_tokens": 2000
             }
             
+            # Docker container'dan LM Studio'ya erişim için host IP kullan
+            import socket
+            try:
+                # Docker container'dan host makineye erişim
+                host_ip = socket.gethostbyname('host.docker.internal')
+                lm_studio_url = f"http://{host_ip}:1234/v1/chat/completions"
+            except:
+                # Fallback URLs - macOS Docker Desktop için
+                try:
+                    lm_studio_url = "http://192.168.65.1:1234/v1/chat/completions"  # Docker Desktop gateway
+                except:
+                    lm_studio_url = "http://172.17.0.1:1234/v1/chat/completions"  # Docker bridge
+            
             response = requests.post(
-                "http://host.docker.internal:1234/v1/chat/completions", 
+                lm_studio_url, 
                 json=payload, 
-                timeout=300  # 5 dakika timeout - derin araştırma uzun sürer
+                timeout=600  # 10 dakika timeout - derin araştırma uzun sürer
             )
             
             if response.status_code == 200:
@@ -250,7 +263,7 @@ Bu araştırma tamamen sizin bilgisayarınızdaki AI modeli tarafından yapılm�
             
             os.makedirs('/app/research_results', exist_ok=True)
             
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             safe_topic = "".join(c for c in topic if c.isalnum() or c in (' ', '-', '_')).rstrip()[:50]
             filename = f"/app/research_results/{timestamp}_{safe_topic.replace(' ', '_')}.md"
             
@@ -306,11 +319,29 @@ async def research_websocket(websocket: WebSocket):
     # İlk bağlantı mesajı gönder
     await websocket.send_json({"type": "progress", "step": 0, "message": "Bağlantı kuruldu, araştırma isteği bekleniyor..."})
     
+    # Keepalive task başlat
+    async def keepalive_task():
+        while True:
+            try:
+                await asyncio.sleep(30)  # Her 30 saniyede bir ping
+                await websocket.send_json({"type": "keepalive"})
+                logger.info("Keepalive ping sent")
+            except Exception as e:
+                logger.error(f"Keepalive error: {e}")
+                break
+    
+    keepalive = asyncio.create_task(keepalive_task())
+    
     try:
         while True:
             logger.info("Waiting for message...")
-            data = await websocket.receive_text()
-            logger.info(f"RAW MESSAGE RECEIVED: {data}")
+            try:
+                # WebSocket receive timeout ekle
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=120)  # 2 dakika
+                logger.info(f"RAW MESSAGE RECEIVED: {data}")
+            except asyncio.TimeoutError:
+                logger.info("WebSocket receive timeout")
+                continue
             
             try:
                 request = json.loads(data)
@@ -321,51 +352,66 @@ async def research_websocket(websocket: WebSocket):
                 continue
             
             topic = request.get("topic")
-            model_name = request.get("model")  # opsiyonel
-            
-            logger.info(f"TOPIC: {topic}, MODEL: {model_name}")
+            model_info = request.get("model")  # Client'ten gelen { id: "model_name", source: "provider" } formatı
 
             if not topic:
+                logger.error("Topic is missing from request")
                 await websocket.send_json({"type": "error", "data": "Topic is required"})
                 continue
 
-            # Eğer model belirtildiyse yeni researcher oluştur
-            global researcher
-            
-            # Lokal model kullanım bildirimi
-            await websocket.send_json({"type": "progress", "step": 0, "message": "🏠 Tamamen lokal modlarla deep research başlıyor..."})
-            
-            # Model testi atlansın - direkt araştırmaya geç
-            logger.info(f"Skipping model test, proceeding with research for: {model_name}")
-            
-            # Tamamen lokal deep research - web araması olmadan
-            researcher = LocalDeepResearcher(
-                model_name=model_name or "default",
+            # Model adı ve kaynağını parse et
+            if isinstance(model_info, dict):
+                model_name = model_info.get('id', 'default')
+                model_source = model_info.get('source', 'Unknown')
+            else:
+                # Fallback - eski string format
+                model_name = str(model_info) if model_info else 'default'
+                model_source = 'Unknown'
+
+            logger.info(f"TOPIC: {topic}, MODEL: {model_info}")
+            logger.info(f"Full request: {request}")
+            logger.info(f"Skipping model test, proceeding with research for: {model_info}")
+            logger.info(f"Processing research for topic: '{topic}' with model: {model_name} from {model_source}")
+
+            # Web-based deep research bildirimi
+            await websocket.send_json({"type": "progress", "step": 0, "message": "🌐 Gerçek web araması ile deep research başlıyor..."})
+
+            # Gerçek web-based deep research
+            researcher = RealDeepResearcher(
+                model_name=model_name,
+                model_source=model_source,  # Kaynağı ilet
                 websocket=websocket
             )
 
             try:
                 # Model yüklendi bildirimi gönder
-                await websocket.send_json({"type": "progress", "step": 0, "message": f"🤖 Model hazır: {model_name or 'LM Studio varsayılan'}"})
+                await websocket.send_json({"type": "progress", "step": 0, "message": f"🤖 Model hazır: {model_name} ({model_source})"})
                 
-                # Araştırma başlıyor bildirimi
-                await websocket.send_json({"type": "progress", "step": 0.05, "message": f"🚀 '{topic}' konusu için lokal derin araştırma başlatılıyor..."})
+                # Araştırma başlıyor bildirimi  
+                await websocket.send_json({"type": "progress", "step": 0.05, "message": f"🚀 '{topic}' konusu için gerçek web araştırması başlatılıyor..."})
                 
-                # research_topic metodunu çağır - hata ayıklama için log ekle
-                logger.info(f"Starting LOCAL research for topic: {topic}")
-                logger.info(f"Using LOCAL model: {model_name or 'Default LM Studio'}")
-                
-                # Lokal research başlat
+                # research_topic metodunu çağır
                 answer = await researcher.research_topic(topic)
                 await websocket.send_json({"type": "result", "data": answer})
                 
             except Exception as e:
+                logger.error(f"Research error: {str(e)}")
                 await websocket.send_json({"type": "error", "data": f"Araştırma hatası: {str(e)}"})
+                # WebSocket bağlantısını devam ettir, hata yüzünden kapatma
+                continue
 
     except WebSocketDisconnect:
         pass  # Client disconnection is normal
     except Exception as e:
+        logger.error(f"WebSocket error: {e}")
         await websocket.close(code=1011)
+    finally:
+        # Keepalive task'ı iptal et
+        keepalive.cancel()
+        try:
+            await keepalive
+        except asyncio.CancelledError:
+            pass
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)

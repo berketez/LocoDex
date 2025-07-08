@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '@/components/ui/button.jsx'
 import { Input } from '@/components/ui/input.jsx'
@@ -24,6 +25,11 @@ import DeepResearch from '@/components/DeepResearch.jsx'
 import FileUpload from '@/components/FileUpload.jsx'
 import RAGChat from '@/components/RAGChat.jsx'
 import AIModelTraining from '@/components/AIModelTraining.jsx'
+import VLLMManager from '@/components/VLLMManager.jsx'
+import SecurityManager from '@/components/SecurityManager.jsx'
+import ModelActivityMonitor from '@/components/ModelActivityMonitor.jsx'
+import MSSQLMonitor from '@/components/MSSQLMonitor.jsx'
+import AnomalyDetection from '@/components/AnomalyDetection.jsx'
 import { systemPrompts } from '@/utils/systemPrompts.js'
 import HallucinationDetector from '@/utils/hallucinationDetector.js'
 import { 
@@ -42,12 +48,12 @@ import {
   Code,
   Brain,
   Activity,
+  Monitor,
   HardDrive,
   MemoryStick,
   Wifi,
   Play,
   Pause,
-  Monitor,
   Shield,
   BarChart3,
   Zap,
@@ -137,6 +143,40 @@ const EnhancedModelSelector = ({ onModelSelect, selectedModel }) => {
           }
         } catch (err) {
           console.log('Ollama bulunamadı:', err.message)
+        }
+
+        // Check vLLM
+        try {
+          const vllmResponse = await fetch('http://localhost:8000/models', {
+            signal: AbortSignal.timeout(5000) // 5 saniye timeout
+          })
+          if (vllmResponse.ok) {
+            const vllmData = await vllmResponse.json()
+            vllmData.data?.forEach(model => {
+              discoveredModels.push({
+                id: model.id,
+                name: model.id,
+                provider: 'vLLM',
+                status: model.status || 'loaded',
+                category: 'enterprise', // vLLM is high-performance
+                hallucinationRisk: 'low', // High-performance models are more reliable
+                capabilities: {
+                  chat: true,
+                  completion: true,
+                  embedding: false,
+                  vision: false,
+                  code: true,
+                  reasoning: true,
+                  factChecking: true,
+                  enterpriseReady: true,
+                  highPerformance: true,
+                  gpuAcceleration: true
+                }
+              })
+            })
+          }
+        } catch (err) {
+          console.log('vLLM bulunamadı:', err.message)
         }
 
         // Check LM Studio
@@ -256,6 +296,7 @@ const EnhancedModelSelector = ({ onModelSelect, selectedModel }) => {
     switch (provider) {
       case 'Ollama': return 'bg-orange-100 text-orange-800 border-orange-200'
       case 'LM Studio': return 'bg-purple-100 text-purple-800 border-purple-200'
+      case 'vLLM': return 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-900 border-purple-300'
       default: return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
@@ -264,6 +305,7 @@ const EnhancedModelSelector = ({ onModelSelect, selectedModel }) => {
     switch (provider) {
       case 'Ollama': return '🦙'
       case 'LM Studio': return '🎬'
+      case 'vLLM': return '⚡'
       default: return '🤖'
     }
   }, [])
@@ -428,6 +470,7 @@ const EnhancedModelSelector = ({ onModelSelect, selectedModel }) => {
             <option value="all">Tüm Sağlayıcılar</option>
             <option value="Ollama">Ollama</option>
             <option value="LM Studio">LM Studio</option>
+            <option value="vLLM">vLLM (Yüksek Performans)</option>
           </select>
         </div>
       </div>
@@ -501,6 +544,24 @@ const EnhancedModelSelector = ({ onModelSelect, selectedModel }) => {
                       <div className="flex items-center justify-center">
                         <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
                           🏢 Enterprise Ready
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {/* High Performance Indicator */}
+                    {model.capabilities?.highPerformance && (
+                      <div className="flex items-center justify-center">
+                        <Badge variant="outline" className="text-xs bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 border-purple-200">
+                          ⚡ Yüksek Performans
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {/* GPU Acceleration Indicator */}
+                    {model.capabilities?.gpuAcceleration && (
+                      <div className="flex items-center justify-center">
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                          🔥 GPU Hızlandırma
                         </Badge>
                       </div>
                     )}
@@ -586,10 +647,12 @@ function AppContent() {
       docker: 'disconnected',
       sandbox: 'disconnected',
       ollama: 'connected',
-      lmstudio: 'connected'
+      lmstudio: 'connected',
+      vllm: 'unknown'
     }
   })
   const [showSystemPanel, setShowSystemPanel] = useState(true)
+  const [showActivityMonitor, setShowActivityMonitor] = useState(false)
   const [activityLog, setActivityLog] = useState([
     {
       id: 1,
@@ -1045,6 +1108,19 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
               >
                 <Activity className="w-4 h-4" />
               </Button>
+
+              <Button 
+                variant={showActivityMonitor ? "default" : "outline"}
+                size="sm" 
+                onClick={() => {
+                  React.startTransition(() => {
+                    setShowActivityMonitor(!showActivityMonitor)
+                  })
+                }}
+                className={showActivityMonitor ? "bg-green-600 hover:bg-green-700" : ""}
+              >
+                <Monitor className="w-4 h-4" />
+              </Button>
               
               <Dialog open={isModelDialogOpen} onOpenChange={setIsModelDialogOpen}>
                 <DialogTrigger asChild>
@@ -1139,7 +1215,7 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
               <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4">
-                <TabsList className="grid w-full grid-cols-6">
+                <TabsList className="grid w-full grid-cols-10">
                   <TabsTrigger value="chat" className="flex items-center space-x-2">
                     <Bot className="w-4 h-4" />
                     <span>Sohbet</span>
@@ -1151,9 +1227,18 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
                       <Badge variant="destructive" className="text-xs">!</Badge>
                     )}
                   </TabsTrigger>
+                  <TabsTrigger value="vllm" className="flex items-center space-x-2">
+                    <Zap className="w-4 h-4" />
+                    <span>vLLM</span>
+                    <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">GPU</Badge>
+                  </TabsTrigger>
                   <TabsTrigger value="environment" className="flex items-center space-x-2">
                     <Container className="w-4 h-4" />
                     <span>Ortam</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="security" className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4" />
+                    <span>Güvenlik</span>
                   </TabsTrigger>
                   <TabsTrigger value="execution" className="flex items-center space-x-2">
                     <Terminal className="w-4 h-4" />
@@ -1171,6 +1256,14 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
                   <TabsTrigger value="ai-training" className="flex items-center space-x-2">
                     <Brain className="w-4 h-4" />
                     <span>AI Training</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="mssql" className="flex items-center space-x-2">
+                    <Database className="w-4 h-4" />
+                    <span>MSSQL</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="anomaly" className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4" />
+                    <span>Anomaly</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -1349,10 +1442,27 @@ ${selectedModel ? `Model: ${selectedModel.name} (${selectedModel.provider})` : '
                 </div>
               </TabsContent>
 
+              {/* vLLM Tab */}
+              <TabsContent value="vllm" className="flex-1">
+                <div className="h-full">
+                  <VLLMManager 
+                    onModelSelect={handleModelSelect}
+                    selectedModel={selectedModel}
+                  />
+                </div>
+              </TabsContent>
+
               {/* Environment Tab */}
               <TabsContent value="environment" className="flex-1">
                 <div className="p-4 h-full">
                   <EnvironmentManager />
+                </div>
+              </TabsContent>
+
+              {/* Security Tab */}
+              <TabsContent value="security" className="flex-1">
+                <div className="h-full">
+                  <SecurityManager />
                 </div>
               </TabsContent>
 
@@ -1468,6 +1578,16 @@ print(f"Pi sayısı: {math.pi}")
               {/* AI Training Tab */}
               <TabsContent value="ai-training" className="flex-1">
                 <AIModelTraining />
+              </TabsContent>
+
+              {/* MSSQL Monitor Tab */}
+              <TabsContent value="mssql" className="flex-1">
+                <MSSQLMonitor />
+              </TabsContent>
+
+              {/* Anomaly Detection Tab */}
+              <TabsContent value="anomaly" className="flex-1">
+                <AnomalyDetection />
               </TabsContent>
 
               {/* RAG & Fine-tuning Tab */}
@@ -1596,6 +1716,20 @@ print(f"Pi sayısı: {math.pi}")
           currentPlan={currentPlan}
           activityLog={activityLog}
           onClose={() => setShowSystemPanel(false)}
+        />
+      )}
+
+      {/* Model Activity Monitor */}
+      {showActivityMonitor && (
+        <ModelActivityMonitor 
+          selectedModel={selectedModel}
+          dockerServices={[
+            { name: 'ollama', status: 'running', port: 11434 },
+            { name: 'lmstudio', status: 'running', port: 1234 },
+            { name: 'sandbox', status: systemStats.connectionStatus.sandbox, port: 8888 },
+            { name: 'vllm', status: systemStats.connectionStatus.vllm, port: 8000 }
+          ]}
+          onClose={() => setShowActivityMonitor(false)}
         />
       )}
     </div>

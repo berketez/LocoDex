@@ -66,7 +66,7 @@ function createMainWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    show: false, // Don't show until ready
+    show: true, // Show immediately for debugging
     titleBarStyle: isMac ? "hiddenInset" : "default",
     trafficLightPosition: isMac ? { x: 20, y: 20 } : undefined,
     webPreferences: {
@@ -85,13 +85,20 @@ function createMainWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+  
+  // Console log for debugging
+  mainWindow.webContents.on('console-message', (_event, level, message, _line, _sourceId) => {
+    console.log('Console:', level, message);
+  });
 
   // Show window when ready to prevent visual flash
   mainWindow.once("ready-to-show", () => {
+    console.log("Window ready to show");
     if (splashWindow) {
       splashWindow.close();
     }
     mainWindow.show();
+    mainWindow.focus();
 
     // Focus on macOS
     if (isMac) {
@@ -101,7 +108,33 @@ function createMainWindow() {
 
   // Handle window closed
   mainWindow.on("closed", () => {
+    console.log("Main window closed");
     mainWindow = null;
+  });
+  
+  // Handle window crash
+  mainWindow.webContents.on('crashed', () => {
+    console.error('Main window crashed');
+  });
+  
+  // Handle unresponsive
+  mainWindow.on('unresponsive', () => {
+    console.error('Main window unresponsive');
+  });
+  
+  // Handle DOM ready
+  mainWindow.webContents.on('dom-ready', () => {
+    console.log('DOM ready');
+  });
+  
+  // Handle did-finish-load
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Page finished loading');
+  });
+  
+  // Handle did-fail-load
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Page failed to load:', errorCode, errorDescription);
   });
 
   // Handle external links
@@ -129,19 +162,19 @@ app.whenReady().then(async () => {
   // Load ModelDiscovery
   await loadModelDiscovery();
 
-  // Create main window after a short delay
+  // Create main window immediately
+  createMainWindow();
+  createMenu();
+
+  // Setup auto updater
+  if (!isDev && autoUpdater) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+
+  // Check for code updates
   setTimeout(() => {
-    createMainWindow();
-    createMenu();
-
-    // Setup auto updater
-    if (!isDev && autoUpdater) {
-      autoUpdater.checkForUpdatesAndNotify();
-    }
-
-    // Check for code updates
-    checkAndApplyCodeUpdates(mainWindow); // Yeni eklenen kod güncelleme kontrolü
-  }, 2000);
+    checkAndApplyCodeUpdates(mainWindow);
+  }, 5000);
 
   app.on("activate", () => {
     // On macOS, re-create window when dock icon is clicked
@@ -152,14 +185,28 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
+  console.log("All windows closed");
   // On macOS, keep app running even when all windows are closed
   if (!isMac) {
+    console.log("Quitting app (not macOS)");
     app.quit();
   }
 });
 
+app.on("before-quit", () => {
+  console.log("App about to quit");
+});
+
+app.on("will-quit", () => {
+  console.log("App will quit");
+});
+
+app.on("quit", () => {
+  console.log("App quit");
+});
+
 // Security: Prevent new window creation
-app.on("web-contents-created", (event, contents) => {
+app.on("web-contents-created", (_event, contents) => {
   contents.on("new-window", (event, navigationUrl) => {
     event.preventDefault();
     shell.openExternal(navigationUrl);
@@ -422,22 +469,22 @@ ipcMain.handle("get-platform", () => {
   return process.platform;
 });
 
-ipcMain.handle("show-message-box", async (event, options) => {
+ipcMain.handle("show-message-box", async (_event, options) => {
   const result = await dialog.showMessageBox(mainWindow, options);
   return result;
 });
 
-ipcMain.handle("show-open-dialog", async (event, options) => {
+ipcMain.handle("show-open-dialog", async (_event, options) => {
   const result = await dialog.showOpenDialog(mainWindow, options);
   return result;
 });
 
-ipcMain.handle("show-save-dialog", async (event, options) => {
+ipcMain.handle("show-save-dialog", async (_event, options) => {
   const result = await dialog.showSaveDialog(mainWindow, options);
   return result;
 });
 
-ipcMain.handle("open-external", async (event, url) => {
+ipcMain.handle("open-external", async (_event, url) => {
   await shell.openExternal(url);
 });
 
@@ -445,7 +492,7 @@ ipcMain.handle("get-theme", () => {
   return nativeTheme.shouldUseDarkColors ? "dark" : "light";
 });
 
-ipcMain.handle("set-theme", (event, theme) => {
+ipcMain.handle("set-theme", (_event, theme) => {
   nativeTheme.themeSource = theme;
 });
 
@@ -462,7 +509,7 @@ ipcMain.handle("discover-models", async () => {
   }
 });
 
-ipcMain.handle("check-provider", async (event, providerKey) => {
+ipcMain.handle("check-provider", async (_event, providerKey) => {
   if (!modelDiscovery) {
     return { available: false, error: 'ModelDiscovery not available' };
   }
@@ -474,7 +521,7 @@ ipcMain.handle("check-provider", async (event, providerKey) => {
   }
 });
 
-ipcMain.handle("get-recommended-models", async (event, models, taskType) => {
+ipcMain.handle("get-recommended-models", async (_event, models, taskType) => {
   if (!modelDiscovery) {
     return [];
   }
@@ -509,7 +556,7 @@ ipcMain.handle("get-provider-status", async () => {
   }
 });
 
-ipcMain.handle("test-model-connection", async (event, model) => {
+ipcMain.handle("test-model-connection", async (_event, model) => {
   if (!modelDiscovery) {
     return { success: false, error: 'ModelDiscovery not available' };
   }

@@ -59,15 +59,12 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
           memory: 2G
           pids: 50
         reservations:
-          cpus: '0.25'
           memory: 512M
     security_opt:
       - no-new-privileges:true
-      - seccomp:/opt/sandbox/seccomp-profile.json
       - apparmor:docker-default
     user: "1000:1000"
     cap_drop:
@@ -90,7 +87,6 @@ services:
       fsize: 10485760  # 10MB
       cpu: 30  # 30 seconds
       data: 134217728  # 128MB
-    cpu_quota: 50000  # 50% CPU limit
     mem_swappiness: 0
     oom_kill_disable: false
     healthcheck:
@@ -231,6 +227,7 @@ services:
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - LMSTUDIO_HOST=http://host.docker.internal:1234
+      - VLLM_HOST=${VLLM_REMOTE_URL:-http://localhost:8000}  # Remote vLLM server URL
       - PYTHONUNBUFFERED=1
       - LOCAL_MODE=true
       - REDIS_HOST=redis
@@ -240,8 +237,11 @@ services:
       - "8001:8001"
     volumes:
       - ./research_results:/app/research_results
+      - ~/Desktop:/app/desktop
     networks:
       - locodex-network
+    extra_hosts:
+      - "host.docker.internal:192.168.65.1"
     restart: unless-stopped
     deploy:
       resources:
@@ -251,6 +251,133 @@ services:
         reservations:
           cpus: '0.5'
           memory: 2G
+
+  # MSSQL Database Monitoring Service
+  mssql-monitor:
+    build:
+      context: ./src/services/mssql_service
+      dockerfile: Dockerfile
+    container_name: locodex-mssql-monitor
+    environment:
+      - MSSQL_SERVER=${MSSQL_SERVER:-locodex-mssql-demo}
+      - MSSQL_PORT=${MSSQL_PORT:-1433}
+      - MSSQL_DATABASE=${MSSQL_DATABASE:-master}
+      - MSSQL_USER=${MSSQL_USER:-sa}
+      - MSSQL_PASSWORD=${MSSQL_PASSWORD:-}
+      - MSSQL_ENCRYPT=${MSSQL_ENCRYPT:-true}
+      - MSSQL_TRUST_CERT=${MSSQL_TRUST_CERT:-true}
+      - PORT=8002
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./logs/mssql:/app/logs
+    networks:
+      - locodex-network
+    extra_hosts:
+      - "host.docker.internal:192.168.65.1"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.2'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Anomaly Detection Service - AI-powered system monitoring
+  anomaly-detection:
+    build:
+      context: ./src/services/anomaly_detection_service
+      dockerfile: Dockerfile
+    container_name: locodex-anomaly-detection
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-default_insecure_password}
+      - MSSQL_MONITOR_URL=http://mssql-monitor:8002
+      - DEEP_RESEARCH_URL=http://deep-research-service:8001
+      - LOG_LEVEL=info
+    ports:
+      - "8003:8003"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs/anomaly:/app/logs
+    networks:
+      - locodex-network
+    depends_on:
+      - redis
+      - mssql-monitor
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+        reservations:
+          cpus: '0.3'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # vLLM High-Performance Inference Service (Optional - for local GPU usage)
+  vllm-service:
+    build:
+      context: ./src/services/vllm_service
+      dockerfile: Dockerfile
+      args:
+        VLLM_MODE: ${VLLM_BUILD_MODE:-full}  # 'light' for remote proxy, 'full' for local GPU
+    container_name: locodex-vllm
+    environment:
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-default_insecure_password}
+      - AUTO_LOAD_MODEL=${VLLM_AUTO_LOAD_MODEL:-}
+      - PYTHONUNBUFFERED=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    ports:
+      - "8000:8000"
+    volumes:
+      - vllm-models:/app/models
+      - vllm-cache:/app/cache
+      - ./data/vllm:/app/data
+    networks:
+      - locodex-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 16G
+        reservations:
+          cpus: '1.0'
+          memory: 4G
+    # Enable GPU access if available
+    runtime: nvidia
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - vllm-local  # Only start with --profile vllm-local
 
 volumes:
   ai-agent-temp:
@@ -266,6 +393,10 @@ volumes:
   prometheus-data:
     driver: local
   grafana-data:
+    driver: local
+  vllm-models:
+    driver: local
+  vllm-cache:
     driver: local
 
 networks:

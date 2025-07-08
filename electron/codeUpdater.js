@@ -20,9 +20,11 @@ async function fetchLatestReleaseTag() {
     const options = {
       headers: {
         'User-Agent': 'LocoDex-Updater'
-      }
+      },
+      timeout: 5000 // 5 saniye timeout
     };
-    https.get(`${GITHUB_API_BASE}/releases/latest`, options, (res) => {
+    
+    const req = https.get(`${GITHUB_API_BASE}/releases/latest`, options, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
@@ -35,6 +37,11 @@ async function fetchLatestReleaseTag() {
       });
     }).on('error', (e) => {
       reject(new Error('Failed to fetch latest release: ' + e.message));
+    });
+    
+    req.setTimeout(5000, () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
     });
   });
 }
@@ -99,7 +106,15 @@ async function extractZip(zipPath, destPath) {
 async function checkAndApplyCodeUpdates(mainWindow) {
   try {
     const currentVersion = app.getVersion();
-    const latestTag = await fetchLatestReleaseTag();
+    console.log('Current version:', currentVersion);
+    
+    // Timeout ile güncelleme kontrolü
+    const latestTag = await Promise.race([
+      fetchLatestReleaseTag(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Update check timeout')), 3000)
+      )
+    ]);
 
     if (latestTag && latestTag !== `v${currentVersion}`) {
       dialog.showMessageBox(mainWindow, {
@@ -116,7 +131,7 @@ async function checkAndApplyCodeUpdates(mainWindow) {
             buttons: ['Tamam']
           });
 
-          const updateUrl = `https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/releases/download/${latestTag}/source.zip`; // Örnek bir zip dosyası URL'si
+          const updateUrl = `https://github.com/berketez/LocoDex/releases/download/${latestTag}/source.zip`;
           const tempZipPath = path.join(app.getPath('temp'), 'source_update.zip');
           const appSourcePath = path.join(app.getAppPath()); // Uygulamanın kök dizini
 
@@ -143,7 +158,8 @@ async function checkAndApplyCodeUpdates(mainWindow) {
       console.log('Kod güncellemesi mevcut değil.');
     }
   } catch (error) {
-    console.error('Kod güncelleme kontrolü sırasında hata:', error.message);
+    console.log('Kod güncelleme kontrolü sırasında hata:', error.message);
+    // Hata durumunda uygulamayı kapatmıyoruz, sadece logluyoruz
   }
 }
 

@@ -66,7 +66,7 @@ export class AgentManager {
         console.log(chalk.green('🤖 Agent: ') + response + '\n');
 
       } catch (error) {
-        if (error.message === 'canceled') {
+        if (error instanceof Error && error.message === 'canceled') {
           console.log(chalk.green('\n👋 Agent kapatılıyor...'));
           break;
         }

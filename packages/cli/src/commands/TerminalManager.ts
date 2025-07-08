@@ -88,7 +88,7 @@ export class TerminalManager {
         console.log(''); // Boş satır ekle
 
       } catch (error) {
-        if (error.message === 'canceled') {
+        if (error instanceof Error && error.message === 'canceled') {
           console.log(chalk.green('\n👋 Terminal kapatılıyor...'));
           break;
         }

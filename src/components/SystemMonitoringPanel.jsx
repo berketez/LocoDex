@@ -4,6 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Badge } from '@/components/ui/badge.jsx'
 import { Progress } from '@/components/ui/progress.jsx'
 import { ScrollArea } from '@/components/ui/scroll-area.jsx'
+import StatusIndicator from '@/components/ui/status-indicator.jsx'
+import HelpMessage from '@/components/ui/help-message.jsx'
+import { translateStatus } from '@/utils/statusHelpers.js'
 import { 
   RefreshCw, 
   CheckCircle, 
@@ -25,23 +28,6 @@ import {
 const SystemMonitoringPanel = ({ systemStats, selectedModel, currentPlan, activityLog, onClose }) => {
   const [activeSection, setActiveSection] = useState('system')
 
-  const getStatusColor = useCallback((status) => {
-    switch (status) {
-      case 'processing': return 'text-blue-500'
-      case 'active': return 'text-green-500'
-      case 'idle': return 'text-gray-500'
-      default: return 'text-gray-500'
-    }
-  }, [])
-
-  const getStatusIcon = useCallback((status) => {
-    switch (status) {
-      case 'processing': return <RefreshCw className="w-4 h-4 animate-spin" />
-      case 'active': return <CheckCircle className="w-4 h-4" />
-      case 'idle': return <Circle className="w-4 h-4" />
-      default: return <Circle className="w-4 h-4" />
-    }
-  }, [])
 
   const formatBytes = useCallback((bytes) => {
     if (bytes === 0) return '0 B'
@@ -146,7 +132,7 @@ const SystemMonitoringPanel = ({ systemStats, selectedModel, currentPlan, activi
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Yanıt Süresi</span>
-                  <span className="text-sm font-medium">{systemStats?.responseTime || 'N/A'}</span>
+                  <span className="text-sm font-medium">{systemStats?.responseTime || 'Ölçülemiyor'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Toplam İstek</span>
@@ -154,7 +140,7 @@ const SystemMonitoringPanel = ({ systemStats, selectedModel, currentPlan, activi
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Başarı Oranı</span>
-                  <span className="text-sm font-medium">{systemStats?.successRate || 'N/A'}</span>
+                  <span className="text-sm font-medium">{systemStats?.successRate || 'Hesaplanıyor'}</span>
                 </div>
               </CardContent>
             </Card>
@@ -194,12 +180,11 @@ const SystemMonitoringPanel = ({ systemStats, selectedModel, currentPlan, activi
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Durum</span>
-                  <div className="flex items-center space-x-2">
-                    {getStatusIcon(systemStats?.dockerStatus || 'idle')}
-                    <span className={`text-sm font-medium ${getStatusColor(systemStats?.dockerStatus || 'idle')}`}>
-                      {systemStats?.dockerStatus || 'Bilinmiyor'}
-                    </span>
-                  </div>
+                  <StatusIndicator 
+                    status={systemStats?.dockerStatus || 'unknown'} 
+                    size="sm"
+                    pulse={systemStats?.dockerStatus === 'starting' || systemStats?.dockerStatus === 'stopping'}
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Konteyner</span>
@@ -241,17 +226,20 @@ const SystemMonitoringPanel = ({ systemStats, selectedModel, currentPlan, activi
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Durum</span>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(selectedModel.status || 'idle')}
-                        <span className={`text-sm font-medium ${getStatusColor(selectedModel.status || 'idle')}`}>
-                          {selectedModel.status || 'Bilinmiyor'}
-                        </span>
-                      </div>
+                      <StatusIndicator 
+                        status={selectedModel.status || 'unknown'} 
+                        size="sm"
+                        pulse={selectedModel.status === 'loading' || selectedModel.status === 'downloading'}
+                      />
                     </div>
                   </>
                 ) : (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Model seçilmedi</p>
+                  <div className="p-4">
+                    <HelpMessage 
+                      errorType="no_models_available"
+                      variant="inline"
+                      onRetry={() => window.location.reload()}
+                    />
                   </div>
                 )}
               </CardContent>
@@ -268,11 +256,11 @@ const SystemMonitoringPanel = ({ systemStats, selectedModel, currentPlan, activi
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Token/sn</span>
-                  <span className="text-sm font-medium">{systemStats?.tokensPerSecond || 'N/A'}</span>
+                  <span className="text-sm font-medium">{systemStats?.tokensPerSecond || 'Ölçülemiyor'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Ortalama Gecikme</span>
-                  <span className="text-sm font-medium">{systemStats?.averageLatency || 'N/A'}</span>
+                  <span className="text-sm font-medium">{systemStats?.averageLatency || 'Hesaplanıyor'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Toplam Token</span>

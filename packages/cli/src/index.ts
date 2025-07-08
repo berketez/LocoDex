@@ -9,6 +9,14 @@ import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { packageJson } from './utils/packageInfo.js';
 
+// UTF-8 encoding setup for Turkish characters
+process.stdout.setDefaultEncoding('utf8');
+process.stderr.setDefaultEncoding('utf8');
+if (process.env.NODE_ENV !== 'test') {
+  process.env.LANG = 'tr_TR.UTF-8';
+  process.env.LC_ALL = 'tr_TR.UTF-8';
+}
+
 const execAsync = promisify(exec);
 
 // Context tracking
@@ -28,6 +36,70 @@ program
   .name('locodex')
   .description('🚀 LocoDex - AI Destekli Yazılım Mühendisliği Platformu')
   .version(packageJson.version);
+
+// Renkli LocoDex Logo ve Karşılama Ekranı
+function displayWelcomeScreen(): void {
+  console.clear();
+  console.log(chalk.cyan('╔══════════════════════════════════════════════════════════════════════════════╗'));
+  console.log(chalk.cyan('║') + chalk.bold.magenta('                              ██╗      ██████╗  ██████╗ ██████╗ ███████╗██╗  ██╗') + chalk.cyan('║'));
+  console.log(chalk.cyan('║') + chalk.bold.magenta('                              ██║     ██╔═══██╗██╔════╝██╔═══██╗██╔════╝╚██╗██╔╝') + chalk.cyan('║'));
+  console.log(chalk.cyan('║') + chalk.bold.magenta('                              ██║     ██║   ██║██║     ██║   ██║███████╗ ╚███╔╝ ') + chalk.cyan('║'));
+  console.log(chalk.cyan('║') + chalk.bold.magenta('                              ██║     ██║   ██║██║     ██║   ██║╚════██║ ██╔██╗ ') + chalk.cyan('║'));
+  console.log(chalk.cyan('║') + chalk.bold.magenta('                              ███████╗╚██████╔╝╚██████╗╚██████╔╝███████║██╔╝ ██╗') + chalk.cyan('║'));
+  console.log(chalk.cyan('║') + chalk.bold.magenta('                              ╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝') + chalk.cyan('║'));
+  console.log(chalk.cyan('║') + chalk.bold.yellow('                                    AI Destekli Yazılım Mühendisliği Platformu') + chalk.cyan('║'));
+  console.log(chalk.cyan('╚══════════════════════════════════════════════════════════════════════════════╝'));
+  console.log('');
+  console.log(chalk.green('🌟 LocoDex CLI Hoş Geldiniz!'));
+  console.log(chalk.gray('   Yapay zeka destekli yazılım geliştirme deneyiminiz başlıyor...'));
+  console.log('');
+  console.log(chalk.cyan('🛠️  Mevcut Özellikler:'));
+  console.log(chalk.green('   💬 ') + chalk.white('Chat        - AI ile etkileşimli sohbet'));
+  console.log(chalk.green('   🔍 ') + chalk.white('Deep Search - Derinlemesine araştırma'));
+  console.log(chalk.green('   🤖 ') + chalk.white('Agent       - Akıllı yardımcı'));
+  console.log(chalk.green('   📁 ') + chalk.white('Files       - Dosya işlemleri'));
+  console.log(chalk.green('   ⚡ ') + chalk.white('Exec        - Komut çalıştırma'));
+  console.log('');
+  console.log(chalk.yellow('💡 İpucu: ') + chalk.gray('Çıkmak için ESC tuşuna basın'));
+  console.log('');
+}
+
+// Kullanıcı girişi için güzel kutu
+function createInputBox(prompt: string): void {
+  console.log(chalk.cyan('┌─────────────────────────────────────────────────────────────────────────────┐'));
+  console.log(chalk.cyan('│') + chalk.bold.white(' ' + prompt.padEnd(75)) + chalk.cyan('│'));
+  console.log(chalk.cyan('└─────────────────────────────────────────────────────────────────────────────┘'));
+}
+
+// AI cevabı için güzel kutu
+function createResponseBox(title: string): void {
+  console.log('');
+  console.log(chalk.green('┌─────────────────────────────────────────────────────────────────────────────┐'));
+  console.log(chalk.green('│') + chalk.bold.white(' 🤖 ' + title.padEnd(72)) + chalk.green('│'));
+  console.log(chalk.green('└─────────────────────────────────────────────────────────────────────────────┘'));
+}
+
+// Evet/Hayır onay kutusu
+function createConfirmationBox(question: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    console.log('');
+    console.log(chalk.yellow('┌─────────────────────────────────────────────────────────────────────────────┐'));
+    console.log(chalk.yellow('│') + chalk.bold.white(' ❓ ' + question.padEnd(72)) + chalk.yellow('│'));
+    console.log(chalk.yellow('│') + chalk.green(' [E]vet').padEnd(38) + chalk.red(' [H]ayır').padEnd(38) + chalk.yellow('│'));
+    console.log(chalk.yellow('└─────────────────────────────────────────────────────────────────────────────┘'));
+    
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    
+    rl.question(chalk.cyan('Seçiminiz (E/H): '), (answer) => {
+      rl.close();
+      const choice = answer.toLowerCase();
+      resolve(choice === 'e' || choice === 'evet' || choice === 'y' || choice === 'yes');
+    });
+  });
+}
 
 // File system tools (inspired by Gemini CLI)
 async function readFile(filePath: string): Promise<string> {
@@ -120,9 +192,13 @@ function estimateTokens(text: string): number {
 
 // ESC key handler
 function setupEscapeHandler(): void {
-  // Only set raw mode if not already set
-  if (!process.stdin.isRaw) {
-    process.stdin.setRawMode(true);
+  // Only set raw mode if available and not already set
+  if (process.stdin.setRawMode && !process.stdin.isRaw) {
+    try {
+      process.stdin.setRawMode(true);
+    } catch (error) {
+      console.log(chalk.gray('Raw mode not available, using normal input mode'));
+    }
   }
   process.stdin.resume();
   
@@ -169,8 +245,12 @@ function cleanupEscapeHandler(): void {
     delete (process.stdin as any)._escKeyHandler;
   }
   
-  if (process.stdin.isRaw) {
-    process.stdin.setRawMode(false);
+  if (process.stdin.setRawMode && process.stdin.isRaw) {
+    try {
+      process.stdin.setRawMode(false);
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   }
   process.stdin.pause();
 }
@@ -619,8 +699,14 @@ async function selectModel(): Promise<string> {
 
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
+    terminal: true
   });
+  
+  // Set UTF-8 encoding for Turkish characters
+  if (process.stdin.setEncoding) {
+    process.stdin.setEncoding('utf8');
+  }
 
   return new Promise((resolve) => {
     rl.question(chalk.cyan('\nKullanmak istediğiniz modelin numarasını seçin: '), (answer) => {
@@ -640,7 +726,10 @@ async function selectModel(): Promise<string> {
 
 // Enhanced chat function
 async function startChat(model: string) {
-  console.log(chalk.cyan(`\n💬 ${model} modeli ile sohbet başlatılıyor...`));
+  // Karşılama ekranını göster
+  displayWelcomeScreen();
+  
+  console.log(chalk.cyan(`💬 ${model} modeli ile sohbet başlatılıyor...`));
   console.log(chalk.gray(`📊 Context Limit: ${MAX_CONTEXT_LENGTH.toLocaleString()} tokens`));
   
   const spinner = ora('Model yükleniyor...').start();
@@ -651,7 +740,8 @@ async function startChat(model: string) {
   conversationContext = [];
   totalTokens = 0;
   
-  console.log(chalk.green('\n🤖 Merhaba! Size nasıl yardımcı olabilirim?'));
+  createResponseBox('LocoDex AI Hazır!');
+  console.log(chalk.green('🤖 Merhaba! Size nasıl yardımcı olabilirim?'));
   console.log(chalk.cyan('🛠️  Yeteneklerim:'));
   console.log('  • 📁 Dosya okuma/yazma');
   console.log('  • ⚡ Komut çalıştırma');
@@ -665,8 +755,14 @@ async function startChat(model: string) {
 
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
+    terminal: true
   });
+  
+  // Set UTF-8 encoding for Turkish characters
+  if (process.stdin.setEncoding) {
+    process.stdin.setEncoding('utf8');
+  }
 
   const chatLoop = (): Promise<void> => {
     return new Promise((resolve) => {
@@ -695,7 +791,8 @@ async function startChat(model: string) {
           displayContextInfo();
         }
         
-        rl.question(chalk.cyan('👤 Sen: '), async (input) => {
+        createInputBox('👤 Mesajınızı yazın:');
+        rl.question(chalk.cyan('> '), async (input) => {
           if (!isRunning) return;
           
           if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'çık') {
@@ -711,7 +808,8 @@ async function startChat(model: string) {
           try {
             const response = await processWithTools(input, model);
             if (isRunning) {
-              console.log(chalk.green('🤖 LocoDex: ') + response + '\n');
+              createResponseBox('LocoDex AI Cevabı');
+              console.log(response + '\n');
               setImmediate(askQuestion);
             }
           } catch (error) {
@@ -787,6 +885,10 @@ program
   .description('AI ile sohbet başlat')
   .option('-m, --model <model>', 'Kullanılacak model')
   .action(async (options) => {
+    // Subcommand için ana CLI handlers'ı temizle
+    cleanupEscapeHandler();
+    process.removeAllListeners('SIGINT');
+    
     let model = options.model;
     if (!model) {
       model = await selectModel();
@@ -875,6 +977,10 @@ program
   .command('deep-search')
   .description('LocoDex Derin Araştırma Modülü')
   .action(async () => {
+    // Subcommand için ana CLI handlers'ı temizle
+    cleanupEscapeHandler();
+    process.removeAllListeners('SIGINT');
+    
     const { DeepSearchManager } = await import('./commands/DeepSearchManager.js');
     const deepSearchManager = new DeepSearchManager();
     await deepSearchManager.start();
@@ -885,9 +991,26 @@ program
   .description('LocoDex AI Agent (Sohbet + Terminal)')
   .option('-m, --model <model>', 'Kullanılacak model')
   .action(async (options) => {
+    // Subcommand için ana CLI handlers'ı temizle
+    cleanupEscapeHandler();
+    process.removeAllListeners('SIGINT');
+    
     const { AgentManager } = await import('./commands/AgentManager.js');
     const agentManager = new AgentManager();
     await agentManager.start(options.model);
+  });
+
+program
+  .command('documents')
+  .description('Kurumsal Belge Yönetimi ve RAG Sistemi')
+  .action(async () => {
+    // Subcommand için ana CLI handlers'ı temizle
+    cleanupEscapeHandler();
+    process.removeAllListeners('SIGINT');
+    
+    const { DocumentManager } = await import('./commands/DocumentManager.js');
+    const documentManager = new DocumentManager();
+    await documentManager.start();
   });
 
 program.parse();

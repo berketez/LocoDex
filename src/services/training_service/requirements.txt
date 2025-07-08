@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+chromadb
+ollama
+requests
+transformers
+peft
+bitsandbytes
+accelerate
+datasets

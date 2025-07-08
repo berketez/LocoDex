@@ -13,32 +13,129 @@ export class DeepSearchManager {
   private rl: readline.Interface;
   private ws: WebSocket | null = null;
   private spinner: Ora;
-  private selectedModel: string | null = null;
+  private selectedModel: { id: string; source: string } | null = null;
   private researchTimeout: NodeJS.Timeout | null = null;
   private progressInterval: NodeJS.Timeout | null = null;
   private startTime: number = 0;
 
   constructor() {
+    // Clean up any existing listeners and handlers
+    process.stdin.removeAllListeners();
+    process.removeAllListeners('SIGINT');
+    
+    // Reset stdin completely
+    if (process.stdin.setRawMode) {
+      try {
+        process.stdin.setRawMode(false);
+      } catch (e) {
+        // ignore
+      }
+    }
+    
+    // Pause and resume to reset state
+    process.stdin.pause();
+    process.stdin.resume();
+    
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
+      terminal: true
     });
+    
+    // Set UTF-8 encoding for Turkish characters
+    if (process.stdin.setEncoding) {
+      process.stdin.setEncoding('utf8');
+    }
+    
+    // SIGINT (Ctrl+C) handler
+    this.rl.on('SIGINT', () => {
+      console.log(chalk.yellow('\n👋 Deep Search modülü kapatılıyor...'));
+      this.cleanup();
+      process.exit(0);
+    });
+    
+    // Process-level SIGINT handler as backup
+    process.on('SIGINT', () => {
+      console.log(chalk.yellow('\n👋 Deep Search modülü kapatılıyor...'));
+      this.cleanup();
+      process.exit(0);
+    });
+    
     this.spinner = ora();
+  }
+
+  // Renkli Deep Search Logo
+  private displayDeepSearchWelcome(): void {
+    console.clear();
+    console.log(chalk.magenta('╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗'));
+    console.log(chalk.magenta('║') + chalk.bold.cyan('     ██████╗ ███████╗███████╗██████╗     ███████╗███████╗ █████╗ ██████╗  ██████╗██╗  ██╗                                                                                                                     ') + chalk.magenta('║'));
+    console.log(chalk.magenta('║') + chalk.bold.cyan('     ██╔══██╗██╔════╝██╔════╝██╔══██╗    ██╔════╝██╔════╝██╔══██╗██╔══██╗██╔════╝██║  ██║                                                                                                                     ') + chalk.magenta('║'));
+    console.log(chalk.magenta('║') + chalk.bold.cyan('     ██║  ██║█████╗  █████╗  ██████╔╝    ███████╗█████╗  ███████║██████╔╝██║     ███████║                                                                                                                     ') + chalk.magenta('║'));
+    console.log(chalk.magenta('║') + chalk.bold.cyan('     ██║  ██║██╔══╝  ██╔══╝  ██╔═══╝     ╚════██║██╔══╝  ██╔══██║██╔══██╗██║     ██╔══██║                                                                                                                     ') + chalk.magenta('║'));
+    console.log(chalk.magenta('║') + chalk.bold.cyan('     ██████╔╝███████╗███████╗██║         ███████║███████╗██║  ██║██║  ██║╚██████╗██║  ██║                                                                                                                     ') + chalk.magenta('║'));
+    console.log(chalk.magenta('║') + chalk.bold.cyan('     ╚═════╝ ╚══════╝╚══════╝╚═╝         ╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝                                                                                                                     ') + chalk.magenta('║'));
+    console.log(chalk.magenta('║') + chalk.bold.yellow('                                                        🔍 Derinlemesine Araştırma Modülü                                                                                                                    ') + chalk.magenta('║'));
+    console.log(chalk.magenta('╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝'));
+    console.log('');
+    console.log(chalk.green('🌟 Deep Search Modülü Aktif!'));
+    console.log(chalk.gray('   Yapay zeka destekli derinlemesine araştırma yapmaya hazırlanıyor...'));
+    console.log('');
+    console.log(chalk.cyan('🔬 Araştırma Özellikleri:'));
+    console.log(chalk.green('   📊 ') + chalk.white('Kapsamlı veri analizi'));
+    console.log(chalk.green('   🌐 ') + chalk.white('Çoklu kaynak taraması'));
+    console.log(chalk.green('   🧠 ') + chalk.white('AI destekli sentez'));
+    console.log(chalk.green('   📈 ') + chalk.white('Gerçek zamanlı ilerleme'));
+    console.log(chalk.green('   📋 ') + chalk.white('Detaylı raporlama'));
+    console.log('');
+    console.log(chalk.yellow('💡 İpucu: ') + chalk.gray('Çıkmak için "exit" yazın'));
+    console.log('');
+  }
+
+  // Araştırma konusu için basit tek satır
+  private createResearchInputBox(): void {
+    // Büyük kutu yerine basit prompt
+  }
+
+  // İlerleme göstergesi kutusu (artık kullanılmıyor, tek satır için)
+  private createProgressBox(title: string, step: string): void {
+    // Bu metod artık kullanılmıyor, progress mesajları tek satırda gösteriliyor
+  }
+
+  // Sonuç göstergesi - basit tek satır
+  private createResultBox(title: string): void {
+    console.log('');
+    console.log(chalk.bold.green('📊 ' + title));
   }
 
   private connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.spinner.start('Derin araştırma servisine bağlanılıyor...');
       try {
-        const ws = new WebSocket('ws://localhost:8001/research_ws');
+        const ws = new WebSocket('ws://localhost:8001/research_ws', {
+          // WebSocket timeout ayarları
+          handshakeTimeout: 30000,
+          perMessageDeflate: false
+        });
         this.ws = ws;
 
         ws.on('open', () => {
           this.spinner.succeed('Derin araştırma servisine başarıyla bağlanıldı!');
           
+          // Keepalive ping gönder
+          const keepAliveInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.ping();
+            } else {
+              clearInterval(keepAliveInterval);
+            }
+          }, 30000); // Her 30 saniyede ping gönder
+          
+          // Store interval for cleanup
+          (ws as any)._keepAliveInterval = keepAliveInterval;
+          
           // Delay before showing prompt
-          setTimeout(() => {
-            this.promptForTopic();
+          setTimeout(async () => {
+            await this.promptForTopic();
           }, 1000);
           resolve();
         });
@@ -100,14 +197,14 @@ export class DeepSearchManager {
               progressText = `[%${percentage}] ${progressText}`;
             }
             
-            // Progress mesajını direkt göster, spinner kullanma
-            console.log(chalk.cyan(`📋 ${progressText}`));
+            // Progress mesajını tek satırda göster
+            console.log(chalk.cyan('🔬 ') + chalk.white(progressText));
             return;
           } else if (message.type === 'result') {
-            console.log(chalk.green('\n--- Araştırma Sonucu ---'));
-            console.log(message.data);
-            console.log(chalk.green('--- Sonuç Sonu ---'));
-            this.promptForTopic();
+            this.createResultBox('Araştırma Tamamlandı');
+            console.log(chalk.white(message.data));
+            console.log('');
+            this.promptForTopic().catch(console.error);
           } else if (message.type === 'error') {
             this.spinner.stop();
             
@@ -119,19 +216,21 @@ export class DeepSearchManager {
             
             console.log(chalk.red(`\n❌ Hata: ${message.data}`));
             
-            // API key hatası için özel mesaj
-            if (message.data.includes('API anahtarları')) {
+            // Lokal model servisi hatası için özel mesaj
+            if (message.data.includes('API anahtarları') || message.data.includes('model') || message.data.includes('404')) {
               console.log(chalk.yellow('\n💡 Çözüm:'));
-              console.log(chalk.gray('   1. Proje kök dizininde .env dosyası oluşturun'));
-              console.log(chalk.gray('   2. Aşağıdaki anahtarları ekleyin:'));
-              console.log(chalk.gray('      # API anahtarları gerekli değil (lokal modeller kullanılıyor)'));
-              console.log(chalk.gray('      TAVILY_API_KEY=your_key_here'));
-              console.log(chalk.gray('   3. API anahtarlarını ilgili sitelerden alın:'));
-              console.log(chalk.gray('      # Lokal model servisleri: Ollama, LM Studio'));
-              console.log(chalk.gray('      - Tavily: https://tavily.com\n'));
+              console.log(chalk.gray('   1. Lokal model servisini başlatın:'));
+              console.log(chalk.gray('      • Ollama: ollama serve'));
+              console.log(chalk.gray('      • LM Studio: Local Server başlatın'));
+              console.log(chalk.gray('   2. Model yüklediğinizden emin olun'));
+              console.log(chalk.gray('   3. Seçtiğiniz modelin doğru yüklendiğini kontrol edin'));
+              console.log(chalk.gray('   4. Servis portlarını kontrol edin:'));
+              console.log(chalk.gray('      • Ollama: localhost:11434'));
+              console.log(chalk.gray('      • LM Studio: localhost:1234'));
+              console.log(chalk.gray('   5. Model adının tam olarak doğru olduğundan emin olun\n'));
             }
             
-            this.promptForTopic();
+            this.promptForTopic().catch(console.error);
           }
           } catch (error) {
             console.log(chalk.red(`WebSocket mesaj hatası: ${error}`));
@@ -139,9 +238,23 @@ export class DeepSearchManager {
         });
 
         ws.on('close', (code, reason) => {
+          // Cleanup keepalive interval
+          if ((ws as any)._keepAliveInterval) {
+            clearInterval((ws as any)._keepAliveInterval);
+          }
+          
           this.spinner.fail('Derin araştırma servisiyle bağlantı kesildi.');
           console.log(chalk.gray(`Bağlantı kesilme nedeni: ${code} - ${reason}`));
-          this.rl.close();
+          
+          // Eğer keepalive timeout ise yeniden bağlanmayı dene
+          if (code === 1011 && reason?.toString().includes('keepalive')) {
+            console.log(chalk.yellow('🔄 Keepalive timeout - yeniden bağlanmaya çalışıyorum...'));
+            setTimeout(() => {
+              this.reconnect();
+            }, 2000);
+          } else {
+            this.rl.close();
+          }
         });
 
         ws.on('error', (error) => {
@@ -156,7 +269,8 @@ export class DeepSearchManager {
   }
 
   public async start(): Promise<void> {
-    console.log(chalk.cyan('🤖 LocoDex Deep Research CLI Başlatılıyor...\n'));
+    // Karşılama ekranını göster
+    this.displayDeepSearchWelcome();
 
     try {
       await this.selectModel();
@@ -170,22 +284,22 @@ export class DeepSearchManager {
     
     // Model yükleme kontrolü
     if (this.selectedModel) {
-      this.spinner.start(chalk.yellow(`🔄 ${this.selectedModel} modeli kontrol ediliyor...`));
+      this.spinner.start(chalk.yellow(`🔄 ${this.selectedModel.id} modeli kontrol ediliyor...`));
       
       // Model kontrolü uzun sürebilir, kullanıcıyı bilgilendir
       let checkInterval = setInterval(() => {
         if (this.spinner.isSpinning) {
-          this.spinner.text = chalk.yellow(`🔄 ${this.selectedModel} modeli kontrol ediliyor... (Model yükleniyorsa bu biraz zaman alabilir)`);
+          this.spinner.text = chalk.yellow(`🔄 ${this.selectedModel?.id} modeli kontrol ediliyor... (Model yükleniyorsa bu biraz zaman alabilir)`);
         }
       }, 3000);
       
-      const isModelReady = await this.checkModelAvailability(this.selectedModel);
+      const isModelReady = await this.checkModelAvailability(this.selectedModel.id);
       clearInterval(checkInterval);
       
       if (isModelReady) {
-        this.spinner.succeed(chalk.green(`✓ ${this.selectedModel} modeli hazır ve kullanıma uygun!`));
+        this.spinner.succeed(chalk.green(`✓ ${this.selectedModel.id} modeli hazır ve kullanıma uygun!`));
       } else {
-        this.spinner.fail(chalk.red(`✗ ${this.selectedModel} modeli yanıt vermiyor!`));
+        this.spinner.fail(chalk.red(`✗ ${this.selectedModel.id} modeli yanıt vermiyor!`));
         console.log(chalk.yellow('\n💡 Olası çözümler:'));
         console.log(chalk.gray('   1. LM Studio veya Ollama\'nın çalıştığından emin olun'));
         console.log(chalk.gray('   2. Modelin tam olarak yüklendiğinden emin olun'));
@@ -211,52 +325,82 @@ export class DeepSearchManager {
     }
   }
 
-  private promptForTopic(): void {
+  private async promptForTopic(): Promise<void> {
     if (this.spinner.isSpinning) {
       this.spinner.stop();
     }
 
-    // Ensure clean console state
-    console.log(''); // Add a newline for better formatting
-    console.log(chalk.cyan('💡 Sistem hazır! Araştırma yapmak için bir konu girin.'));
+    // Basit prompt - büyük kutu yok
+    // this.createResearchInputBox(); // Kaldırıldı
     
-    // Synchronous input with fallback
-    let topic = '';
-    try {
-      const prompt = require('prompt-sync')({ sigint: true });
-      topic = prompt(chalk.yellow('🔍 Araştırma konusunu girin (çıkmak için "exit" yazın): '));
-      console.log(chalk.red(`🚨 TOPIC RECEIVED: "${topic}"`));
-    } catch (error) {
-      console.log(chalk.red('❌ Input sistemi hatası. readline kullanılıyor...'));
-      this.rl.question(chalk.yellow('🔍 Araştırma konusunu girin (çıkmak için "exit" yazın): '), (inputTopic) => {
-        topic = inputTopic;
-        console.log(chalk.red(`🚨 TOPIC RECEIVED (FALLBACK): "${topic}"`));
-        this.processTopicInput(topic);
-        return;
-      });
-      return;
-    }
+    // Synchronous input using process.stdin directly
+    process.stdout.write(chalk.bold.white('🔬 Konu: '));
     
-    this.processTopicInput(topic);
+    return new Promise((resolve) => {
+      let inputBuffer = '';
+      
+      const onData = (chunk: Buffer) => {
+        const input = chunk.toString();
+        
+        // Handle different line endings
+        if (input.includes('\n') || input.includes('\r')) {
+          // Remove the listener immediately
+          process.stdin.removeListener('data', onData);
+          process.stdin.pause();
+          
+          // Get the topic (remove line endings and combine with buffer)
+          const fullInput = inputBuffer + input;
+          const topic = fullInput.replace(/[\r\n]+/g, '').trim();
+          
+          if (topic) {
+            console.log(''); // New line after input
+            this.processTopicInput(topic);
+          } else {
+            console.log(chalk.yellow('\n⚠️ Boş konu girdiniz. Tekrar deneyin.\n'));
+            setTimeout(() => this.promptForTopic().catch(console.error), 100);
+          }
+          resolve();
+        } else if (input === '\u0003') {
+          // Ctrl+C
+          process.stdin.removeListener('data', onData);
+          console.log(chalk.yellow('\n👋 Deep Search modülü kapatılıyor...'));
+          this.cleanup();
+          process.exit(0);
+        } else if (input === '\u007f' || input === '\b') {
+          // Backspace
+          if (inputBuffer.length > 0) {
+            inputBuffer = inputBuffer.slice(0, -1);
+            process.stdout.write('\b \b');
+          }
+        } else {
+          // Accumulate input
+          inputBuffer += input;
+          // Echo the character (for visual feedback)
+          process.stdout.write(input);
+        }
+      };
+      
+      process.stdin.resume();
+      process.stdin.on('data', onData);
+    });
   }
 
   private processTopicInput(topic: string): void {
     if (topic.toLowerCase() === 'exit') {
-      this.ws?.close();
-      this.rl.close();
+      console.log(chalk.yellow('\n👋 Deep Search modülü kapatılıyor...'));
+      this.cleanup();
       return;
     }
 
     if (this.ws?.readyState === WebSocket.OPEN) {
-        // Araştırma başlangıç bildirimi
-        console.log(chalk.cyan(`\n🔎 "${topic}" konusu araştırılıyor...`));
-        console.log(chalk.gray('📝 Derin araştırma başlatıldı, bu işlem biraz zaman alabilir...\n'));
+        // Araştırma başlangıç kutusu
+        this.createProgressBox('Araştırma Başlatılıyor', `"${topic}" konusu için derin araştırma hazırlanıyor...`);
         
         const message = { topic, model: this.selectedModel };
         
         try {
+          console.log(chalk.blue(`🚀 Mesaj gönderiliyor: ${JSON.stringify(message)}`));
           this.ws.send(JSON.stringify(message));
-          console.log(chalk.green('✓ İstek gönderildi, yanıt bekleniyor...'));
           
           // Start progress tracking
           this.startTime = Date.now();
@@ -270,7 +414,7 @@ export class DeepSearchManager {
             }
           }, 2000);
           
-          // Add timeout for research request (5 minutes for deep research)
+          // Add timeout for research request (10 minutes for deep research)
           this.researchTimeout = setTimeout(() => {
             if (this.spinner.isSpinning) {
               // Clear progress interval
@@ -279,19 +423,19 @@ export class DeepSearchManager {
                 this.progressInterval = null;
               }
               
-              this.spinner.fail(chalk.red('⏰ Araştırma isteği zaman aşımına uğradı (5 dakika)'));
+              this.spinner.fail(chalk.red('⏰ Araştırma isteği zaman aşımına uğradı (10 dakika)'));
               console.log(chalk.yellow('💡 Backend servisi yanıt vermiyor. Olası nedenler:'));
-              console.log(chalk.gray('   1. API anahtarları eksik veya hatalı (.env dosyası)'));
-              console.log(chalk.gray('   2. Lokal model servisleri (Ollama/LM Studio) gerekli'));
+              console.log(chalk.gray('   1. Model çok yavaş yanıt veriyor - daha küçük model deneyin'));
+              console.log(chalk.gray('   2. LM Studio modeli yüklü değil veya yanıt vermiyor'));
               console.log(chalk.gray('   3. Docker servisleri düzgün çalışmıyor'));
               console.log(chalk.gray('   4. Network bağlantı problemi\n'));
-              this.promptForTopic();
+              this.promptForTopic().catch(console.error);
             }
-          }, 300000);  // 5 dakika = 300000ms
+          }, 600000);  // 10 dakika = 600000ms
           
         } catch (error) {
           console.log(chalk.red(`❌ Mesaj gönderme hatası: ${error}`));
-          this.promptForTopic();
+          this.promptForTopic().catch(console.error);
         }
     } else {
       console.log(chalk.red('WebSocket bağlantısı kapalı. Lütfen tekrar başlatın.'));
@@ -302,21 +446,28 @@ export class DeepSearchManager {
   private async discoverModels(): Promise<Array<{ name: string; provider: string }>> {
     const models: Array<{ name: string; provider: string }> = [];
 
+    // LM Studio önce kontrol et (daha yaygın kullanılıyor)
     try {
-      const res = await fetch('http://localhost:11434/api/tags');
+      const res = await fetch('http://localhost:1234/v1/models');
       if (res.ok) {
         const data = await res.json();
-        data.models?.forEach((m: any) => models.push({ name: m.name, provider: 'Ollama' }));
+        data.data?.forEach((m: any) => {
+          // Embedding modellerini filtrele
+          if (!m.id.includes('embed') && !m.id.includes('embedding')) {
+            models.push({ name: m.id, provider: 'LM Studio' });
+          }
+        });
       }
     } catch (_) {
       // ignore
     }
 
+    // Ollama ikinci sırada kontrol et
     try {
-      const res = await fetch('http://localhost:1234/v1/models');
+      const res = await fetch('http://localhost:11434/api/tags');
       if (res.ok) {
         const data = await res.json();
-        data.data?.forEach((m: any) => models.push({ name: m.id, provider: 'LM Studio' }));
+        data.models?.forEach((m: any) => models.push({ name: m.name, provider: 'Ollama' }));
       }
     } catch (_) {
       // ignore
@@ -576,14 +727,14 @@ export class DeepSearchManager {
 
     const idx = parseInt(answer) - 1;
     if (!answer.trim()) {
-      this.selectedModel = models[0].name; // İlk modeli varsayılan yap
-      console.log(chalk.green(`✓ ${this.selectedModel} modeli (varsayılan) seçildi!`));
+      this.selectedModel = { id: models[0].name, source: models[0].provider }; // İlk modeli varsayılan yap
+      console.log(chalk.green(`✓ ${this.selectedModel.id} modeli (varsayılan) seçildi!`));
     } else if (idx >= 0 && idx < models.length) {
-      this.selectedModel = models[idx].name;
-      console.log(chalk.green(`✓ ${this.selectedModel} modeli seçildi!`));
+      this.selectedModel = { id: models[idx].name, source: models[idx].provider };
+      console.log(chalk.green(`✓ ${this.selectedModel.id} modeli seçildi!`));
     } else {
       console.log(chalk.yellow('Geçersiz seçim, ilk model kullanılacak.'));
-      this.selectedModel = models[0].name;
+      this.selectedModel = { id: models[0].name, source: models[0].provider };
     }
   }
 
@@ -620,5 +771,34 @@ export class DeepSearchManager {
     
     // Varsayılan olarak mevcut dizini döndür
     return process.cwd();
+  }
+
+  // Yeniden bağlanma fonksiyonu
+  private async reconnect(): Promise<void> {
+    try {
+      console.log(chalk.cyan('🔄 Yeniden bağlanılıyor...'));
+      await this.connect();
+    } catch (error) {
+      console.log(chalk.red('❌ Yeniden bağlantı başarısız. Lütfen servisleri kontrol edin.'));
+      this.rl.close();
+    }
+  }
+
+  private cleanup(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+    if (this.researchTimeout) {
+      clearTimeout(this.researchTimeout);
+      this.researchTimeout = null;
+    }
+    if (this.spinner.isSpinning) {
+      this.spinner.stop();
+    }
+    if (this.ws) {
+      this.ws.close();
+    }
+    this.rl.close();
   }
 }
